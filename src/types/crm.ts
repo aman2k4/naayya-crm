@@ -1,0 +1,118 @@
+export type ResponseStatus = 'interested' | 'not_interested' | 'interested_later' | 'follow_up_needed' | 'qualified' | 'converted';
+
+export interface Lead {
+  id: string;
+
+  // Lead source
+  lead_source: string;
+
+  // Person details
+  first_name: string;
+  last_name: string;
+  email: string; // unique constraint
+  phone_number?: string;
+
+  // Studio details
+  studio_name: string;
+  current_platform: string;
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  business_type?: string;
+
+  // Location details
+  city: string;
+  state?: string; // state, province, or region
+  country_code: string; // ISO 3166-1 alpha-2 country code (e.g., 'US', 'CA', 'GB')
+
+  // Response tracking
+  response_status: ResponseStatus;
+  notes: string;
+  additional_info?: string;
+
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+
+  // Email engagement metadata (available on CRM view)
+  email_status?: string | null;
+  last_event_type?: string | null;
+  last_event_timestamp?: string | null;
+  event_count?: number | null;
+  emails_sent_count?: number | null;
+  unsubscribed?: boolean | null;
+}
+
+
+export interface CreateLeadInput {
+  // Lead source
+  lead_source: string;
+
+  // Person details
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number?: string;
+
+  // Studio details
+  studio_name: string;
+  current_platform: string;
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  business_type?: string;
+
+  // Location details
+  city: string;
+  state?: string;
+  country_code: string; // ISO 3166-1 alpha-2 country code
+
+  // Response tracking
+  response_status?: ResponseStatus;
+  notes?: string;
+  additional_info?: string;
+}
+
+export interface UpdateLeadInput extends Partial<CreateLeadInput> {
+  // All fields are optional for updates
+}
+
+// Lead enrichment types
+export interface LeadEnrichmentConflict {
+  field: string;
+  current: string;
+  found: string;
+}
+
+export interface LeadEnrichmentResult {
+  leadId: string;
+  found: Record<string, string>;
+  newFields: Record<string, string>;
+  conflicts: LeadEnrichmentConflict[];
+  sources: string[];
+  rawResponse: string;
+}
+
+export interface BulkEnrichmentResult {
+  leadId: string;
+  success: boolean;
+  updatedLead?: Lead;
+  fieldsUpdated?: string[];
+  error?: string;
+}
+
+export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed';
+
+export interface Broadcast {
+  id: string;
+  name: string;
+  audience_id: string;
+  from: string;
+  subject: string;
+  reply_to: string | null;
+  preview_text: string;
+  status: BroadcastStatus;
+  created_at: string;
+  scheduled_at: string | null;
+  sent_at: string | null;
+} 

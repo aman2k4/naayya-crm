@@ -1250,10 +1250,10 @@ export default function CRMDashboard() {
       {/* Compact Filters Bar */}
       <div className="flex items-center gap-2 mb-3 flex-shrink-0 flex-wrap">
         <Select value={selectedCountry} onValueChange={handleCountryChange}>
-          <SelectTrigger className="w-28 h-8 text-xs">
-            <SelectValue placeholder="Country" />
+          <SelectTrigger className="w-32 h-8 text-xs bg-background">
+            <SelectValue placeholder="All Countries" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60">
             <SelectItem value="__all__">All Countries</SelectItem>
             {availableCountries.filter((c) => c && c.trim()).map((country) => (
               <SelectItem key={country} value={country}>{country}</SelectItem>
@@ -1262,10 +1262,10 @@ export default function CRMDashboard() {
         </Select>
 
         <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
-          <SelectTrigger className="w-28 h-8 text-xs">
-            <SelectValue placeholder="Platform" />
+          <SelectTrigger className="w-32 h-8 text-xs bg-background">
+            <SelectValue placeholder="All Platforms" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60">
             <SelectItem value="__all__">All Platforms</SelectItem>
             {availablePlatforms.filter((p) => p && p.trim()).map((platform) => (
               <SelectItem key={platform} value={platform}>{platform}</SelectItem>
@@ -1274,10 +1274,10 @@ export default function CRMDashboard() {
         </Select>
 
         <Select value={selectedSource} onValueChange={handleSourceChange}>
-          <SelectTrigger className="w-28 h-8 text-xs">
-            <SelectValue placeholder="Source" />
+          <SelectTrigger className="w-32 h-8 text-xs bg-background">
+            <SelectValue placeholder="All Sources" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60">
             <SelectItem value="__all__">All Sources</SelectItem>
             {availableSources.filter((s) => s && s.trim()).map((source) => (
               <SelectItem key={source} value={source}>{source}</SelectItem>
@@ -1286,10 +1286,10 @@ export default function CRMDashboard() {
         </Select>
 
         <Select value={selectedEmailStatus} onValueChange={handleEmailStatusChange}>
-          <SelectTrigger className="w-36 h-8 text-xs" title="Last email event status">
-            <SelectValue placeholder="Last email status" />
+          <SelectTrigger className="w-32 h-8 text-xs bg-background" title="Last email event status">
+            <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60">
             <SelectItem value="__all__">All Statuses</SelectItem>
             {EMAIL_STATUS_OPTIONS.map((option) => {
               const Icon = option.icon;
@@ -1305,12 +1305,12 @@ export default function CRMDashboard() {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-1 bg-muted rounded-md px-2 py-1 border">
+        <div className="flex items-center gap-1.5">
           <Input
             type="date"
             value={lastEmailFrom}
             onChange={(e) => handleLastEmailRangeChange("from", e.target.value)}
-            className="h-7 w-32 text-xs"
+            className="h-8 w-[130px] text-xs bg-background"
             placeholder="From"
           />
           <span className="text-xs text-muted-foreground">to</span>
@@ -1318,18 +1318,18 @@ export default function CRMDashboard() {
             type="date"
             value={lastEmailTo}
             onChange={(e) => handleLastEmailRangeChange("to", e.target.value)}
-            className="h-7 w-32 text-xs"
+            className="h-8 w-[130px] text-xs bg-background"
             placeholder="To"
           />
         </div>
 
-        <div className="flex items-center gap-1 bg-muted rounded-md px-2 py-1 border">
+        <div className="flex items-center gap-1.5">
           <Input
             type="number"
             min={0}
             value={minEmailsSent}
             onChange={(e) => handleEmailsSentRangeChange("min", e.target.value)}
-            className="h-7 w-20 text-xs"
+            className="h-8 w-16 text-xs bg-background"
             placeholder="Min"
           />
           <span className="text-xs text-muted-foreground">-</span>
@@ -1338,12 +1338,12 @@ export default function CRMDashboard() {
             min={0}
             value={maxEmailsSent}
             onChange={(e) => handleEmailsSentRangeChange("max", e.target.value)}
-            className="h-7 w-20 text-xs"
+            className="h-8 w-16 text-xs bg-background"
             placeholder="Max"
           />
         </div>
 
-        <div className="flex items-center gap-1 bg-muted rounded-md px-2 py-1 border">
+        <div className="flex items-center gap-1.5 h-8 px-2 border border-input rounded-md bg-background">
           <Checkbox
             id="ever-emailed"
             checked={everEmailedOnly}
@@ -1352,15 +1352,15 @@ export default function CRMDashboard() {
             }
             className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
           />
-          <Label htmlFor="ever-emailed" className="text-xs cursor-pointer">
+          <Label htmlFor="ever-emailed" className="text-xs cursor-pointer whitespace-nowrap">
             Ever emailed (≥1)
           </Label>
         </div>
       </div>
 
       {/* Leads Table */}
-      <Card className="border-0 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
-        <CardHeader className="pb-2 pt-3 px-3 flex-shrink-0 border-b">
+      <Card className="border border-border rounded-lg flex-1 flex flex-col min-h-0 overflow-hidden">
+        <CardHeader className="pb-2 pt-3 px-3 shrink-0 border-b bg-muted/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h2 className="text-sm font-medium">Leads</h2>
@@ -1432,8 +1432,8 @@ export default function CRMDashboard() {
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
             <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/50 border-b z-10">
-                  <tr className="text-muted-foreground">
+                <thead className="sticky top-0 bg-muted/50 border-b border-border z-10">
+                  <tr className="text-muted-foreground text-left">
                     <th className="px-2 py-2 text-left font-medium w-8">
                       <Checkbox
                         checked={isAllFilteredSelected || (selectedLeads.size === leads.length && leads.length > 0)}
@@ -1470,7 +1470,7 @@ export default function CRMDashboard() {
                     <th className="px-2 py-2 text-left font-medium w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border/50">
                   {(leads || []).map((lead) => {
                     const isSelected = selectedLeads.has(lead.id);
                     return (
@@ -1623,9 +1623,9 @@ export default function CRMDashboard() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 flex-shrink-0 bg-gray-50">
+          <div className="flex items-center justify-between px-3 py-2 border-t border-border shrink-0 bg-muted/30">
             <div className="flex items-center space-x-2">
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-muted-foreground">
                 Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
                 {Math.min(currentPage * rowsPerPage, pagination?.total || 0)} of{" "}
                 {pagination?.total || 0} leads
@@ -1633,7 +1633,7 @@ export default function CRMDashboard() {
 
               {/* Rows per page selector */}
               <div className="flex items-center space-x-2">
-                <span className="text-xs text-gray-500">Rows per page:</span>
+                <span className="text-xs text-muted-foreground">Rows per page:</span>
                 <Select
                   value={rowsPerPage.toString()}
                   onValueChange={(value) =>

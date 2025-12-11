@@ -86,7 +86,12 @@ export default function BroadcastTable({
   );
 
   const StatusBadge = ({ status }: { status: BroadcastStatus }) => {
-    const config = BROADCAST_STATUS_CONFIG[status];
+    const config = BROADCAST_STATUS_CONFIG[status] || {
+      label: status || 'Unknown',
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-100',
+      icon: Mail
+    };
     const Icon = config.icon;
 
     return (

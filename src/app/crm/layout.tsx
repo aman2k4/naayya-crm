@@ -1,14 +1,18 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   LayoutDashboard,
   Radio,
   FileText,
-  Users2
+  Users2,
+  LogOut,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { useUser } from '@/app/contexts/UserContext';
 
 export default function CRMLayout({
@@ -16,12 +20,45 @@ export default function CRMLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isGlobalAdmin } = useUser();
+  const { user, isGlobalAdmin, isLoading, logout } = useUser();
   const pathname = usePathname();
+  const router = useRouter();
 
-  // Optional: Additional checks or UI changes based on admin status
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace('/login');
+    }
+  }, [isLoading, user, router]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Not logged in - will redirect
+  if (!user) {
+    return null;
+  }
+
+  // Not a global admin
   if (!isGlobalAdmin) {
-    return <div>Unauthorized Access</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-semibold">Access Denied</h1>
+          <p className="text-muted-foreground">You don't have permission to access the CRM.</p>
+          <Button variant="outline" onClick={logout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const tabs = [
@@ -74,16 +111,21 @@ export default function CRMLayout({
             </div>
           </div>
 
-          {/* Right: User Profile */}
-          <div className="flex items-center gap-2">
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-xs">
-                {user?.email?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-xs text-muted-foreground hidden md:block">
-              {user?.email}
-            </span>
+          {/* Right: User Profile + Logout */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="text-xs">
+                  {user?.email?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-muted-foreground hidden md:block">
+                {user?.email}
+              </span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={logout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
@@ -94,4 +136,4 @@ export default function CRMLayout({
       </div>
     </div>
   );
-} 
+}

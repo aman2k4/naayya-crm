@@ -1,7 +1,7 @@
 import React from "react";
 import { Lead } from "@/types/crm";
 import { render } from "@react-email/components";
-import PilatesEducatorOutreach from "@/app/crm/components/emails/PilatesEducatorOutreach";
+import MindbodyEnterpriseOfferV1 from "@/app/crm/components/emails/MindbodyEnterpriseOfferV1";
 import StudioOwnerOutreach from "@/app/crm/components/emails/StudioOwnerOutreach";
 import StudioOwnerOutreachV3 from "@/app/crm/components/emails/StudioOwnerOutreachV3";
 import StudioOwnerOutreachV4 from "@/app/crm/components/emails/StudioOwnerOutreachV4";
@@ -35,10 +35,10 @@ export interface EmailTemplate {
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: "template-1",
-    name: "Template 1 - Pilates Educator Community Outreach",
-    subject: "Quick question about your Pilates classes",
+    name: "Template 1 - Mindbody Enterprise Offer (US) - 6 Months Free",
+    subject: "Better Mindbody alternative for {{studio_name}}",
     category: "First Email",
-    reactComponent: PilatesEducatorOutreach,
+    reactComponent: MindbodyEnterpriseOfferV1,
   },
   {
     id: "template-2",

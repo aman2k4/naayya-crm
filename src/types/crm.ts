@@ -15,6 +15,8 @@ export interface Lead {
   // Studio details
   studio_name: string;
   current_platform: string;
+  classes_per_week_estimate?: number | null;
+  instructors_count_estimate?: number | null;
   website?: string;
   instagram?: string;
   facebook?: string;
@@ -57,6 +59,8 @@ export interface CreateLeadInput {
   // Studio details
   studio_name: string;
   current_platform: string;
+  classes_per_week_estimate?: number | null;
+  instructors_count_estimate?: number | null;
   website?: string;
   instagram?: string;
   facebook?: string;
@@ -84,13 +88,32 @@ export interface LeadEnrichmentConflict {
   found: string;
 }
 
-export interface LeadEnrichmentResult {
-  leadId: string;
+export type LeadEnrichmentProvider = 'gemini' | 'perplexity';
+
+export interface WebsiteStatus {
+  valid: boolean;
+  status?: number;
+  error?: string;
+  finalUrl?: string;
+}
+
+export interface LeadEnrichmentProviderResult {
+  provider: LeadEnrichmentProvider;
   found: Record<string, string>;
   newFields: Record<string, string>;
   conflicts: LeadEnrichmentConflict[];
   sources: string[];
   rawResponse: string;
+  websiteStatus?: WebsiteStatus;
+  error?: string;
+}
+
+export interface LeadEnrichmentResult {
+  leadId: string;
+  providers: {
+    gemini: LeadEnrichmentProviderResult;
+    perplexity: LeadEnrichmentProviderResult;
+  };
 }
 
 export interface BulkEnrichmentResult {

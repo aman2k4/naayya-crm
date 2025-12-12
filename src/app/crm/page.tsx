@@ -1548,10 +1548,10 @@ export default function CRMDashboard() {
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full text-xs">
+            <table className="w-full table-fixed text-[11px]">
                 <thead className="sticky top-0 bg-muted/50 border-b border-border z-10">
                   <tr className="text-muted-foreground text-left">
-                    <th className="px-2 py-2 text-left font-medium w-8">
+                    <th className="px-1.5 py-1.5 text-left font-medium w-8 whitespace-nowrap">
                       <Checkbox
                         checked={isAllFilteredSelected || (selectedLeads.size === leads.length && leads.length > 0)}
                         onCheckedChange={(checked) => {
@@ -1564,17 +1564,19 @@ export default function CRMDashboard() {
                         className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       />
                     </th>
-                    <th className="px-2 py-2 text-left font-medium">Studio</th>
-                    <th className="px-2 py-2 text-left font-medium">Contact</th>
-                    <th className="px-2 py-2 text-left font-medium">Email</th>
-                    <th className="px-2 py-2 text-left font-medium">Phone</th>
-                    <th className="px-2 py-2 text-left font-medium">Location</th>
-                    <th className="px-2 py-2 text-left font-medium">Response</th>
-                    <th className="px-2 py-2 text-left font-medium">Source</th>
-                    <th className="px-2 py-2 text-left font-medium">Platform</th>
-                    <th className="px-2 py-2 text-left font-medium">Created</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[130px] whitespace-nowrap">Studio</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[105px] whitespace-nowrap">Contact</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[165px] whitespace-nowrap">Email</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[95px] whitespace-nowrap">Phone</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[95px] whitespace-nowrap">Location</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[90px] whitespace-nowrap">Response</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[78px] whitespace-nowrap">Source</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[78px] whitespace-nowrap">Platform</th>
+                    <th className="px-1.5 py-1.5 text-center font-medium w-[56px] whitespace-nowrap" title="Classes per week estimate">Cls/Wk</th>
+                    <th className="px-1.5 py-1.5 text-center font-medium w-[56px] whitespace-nowrap" title="Instructor count estimate">Instr</th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[72px] whitespace-nowrap">Created</th>
                     <th
-                      className="px-2 py-2 text-left font-medium cursor-pointer hover:bg-muted transition-colors"
+                      className="px-1.5 py-1.5 text-left font-medium cursor-pointer hover:bg-muted transition-colors w-[72px] whitespace-nowrap"
                       onClick={() => toggleSort("updated_at")}
                       title="Sort by updated time"
                     >
@@ -1587,9 +1589,9 @@ export default function CRMDashboard() {
                         )}
                       </div>
                     </th>
-                    <th className="px-2 py-2 font-medium text-center">Sent</th>
+                    <th className="px-1.5 py-1.5 font-medium text-center w-[46px] whitespace-nowrap">Sent</th>
                     <th
-                      className="px-2 py-2 text-left font-medium cursor-pointer hover:bg-muted transition-colors"
+                      className="px-1.5 py-1.5 text-left font-medium cursor-pointer hover:bg-muted transition-colors w-[110px] whitespace-nowrap"
                       onClick={() => toggleSort("last_email")}
                       title="Sort by last email event"
                     >
@@ -1602,18 +1604,24 @@ export default function CRMDashboard() {
                         )}
                       </div>
                     </th>
-                    <th className="px-2 py-2 text-left font-medium w-10"></th>
+                    <th className="px-1.5 py-1.5 text-left font-medium w-[84px] whitespace-nowrap"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {(leads || []).map((lead) => {
                     const isSelected = selectedLeads.has(lead.id);
+                    const responseOption = RESPONSE_STATUS_OPTIONS.find(
+                      (opt) => opt.value === lead.response_status
+                    );
+                    const responseLabel = (responseOption?.label || lead.response_status || "-")
+                      .replace(/^[^\p{L}\p{N}]+/u, "")
+                      .trim();
                     return (
                       <tr
                         key={lead.id}
                         className={`group hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5" : ""}`}
                       >
-                        <td className="px-2 py-2">
+                        <td className="px-1.5 py-1.5">
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
@@ -1621,61 +1629,75 @@ export default function CRMDashboard() {
                           />
                         </td>
                         {/* Studio */}
-                        <td className="px-2 py-2 font-medium">
-                          <span className="truncate block max-w-[150px]" title={lead.studio_name}>
+                        <td className="px-1.5 py-1.5 font-medium whitespace-nowrap">
+                          <span className="truncate block max-w-[120px]" title={lead.studio_name}>
                             {lead.studio_name || "-"}
                           </span>
                         </td>
 
                         {/* Contact */}
-                        <td className="px-2 py-2">
-                          <span className="truncate block max-w-[120px]" title={`${lead.first_name} ${lead.last_name}`}>
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
+                          <span className="truncate block max-w-[95px]" title={`${lead.first_name} ${lead.last_name}`}>
                             {`${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "-"}
                           </span>
                         </td>
 
                         {/* Email */}
-                        <td className="px-2 py-2">
-                          <CopyableCell value={lead.email} />
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
+                          <CopyableCell value={lead.email} className="max-w-[150px]" />
                         </td>
 
                         {/* Phone */}
-                        <td className="px-2 py-2">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
                           <span className="truncate block max-w-[100px]" title={lead.phone_number || ""}>
                             {lead.phone_number || "-"}
                           </span>
                         </td>
 
                         {/* Location */}
-                        <td className="px-2 py-2">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
                           <span className="truncate block max-w-[100px]" title={[lead.city, lead.country_code].filter(Boolean).join(", ")}>
                             {[lead.city, lead.country_code].filter(Boolean).join(", ") || "-"}
                           </span>
                         </td>
 
                         {/* Response Status */}
-                        <td className="px-2 py-2">
-                          <span className={RESPONSE_STATUS_OPTIONS.find((opt) => opt.value === lead.response_status)?.color || ""}>
-                            {RESPONSE_STATUS_OPTIONS.find((opt) => opt.value === lead.response_status)?.label || lead.response_status}
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
+                          <span className={responseOption?.color || ""} title={responseOption?.label || lead.response_status}>
+                            {responseLabel || "-"}
                           </span>
                         </td>
 
                         {/* Source */}
-                        <td className="px-2 py-2">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
                           <span className="truncate block max-w-[80px]" title={lead.lead_source}>
                             {lead.lead_source || "-"}
                           </span>
                         </td>
 
                         {/* Platform */}
-                        <td className="px-2 py-2">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
                           <span className="truncate block max-w-[80px]" title={lead.current_platform}>
                             {lead.current_platform || "-"}
                           </span>
                         </td>
 
+                        {/* Classes / Week */}
+                        <td className="px-1.5 py-1.5 text-center whitespace-nowrap text-muted-foreground">
+                          <span className="font-mono">
+                            {lead.classes_per_week_estimate ?? "-"}
+                          </span>
+                        </td>
+
+                        {/* Instructors */}
+                        <td className="px-1.5 py-1.5 text-center whitespace-nowrap text-muted-foreground">
+                          <span className="font-mono">
+                            {lead.instructors_count_estimate ?? "-"}
+                          </span>
+                        </td>
+
                         {/* Created Date */}
-                        <td className="px-2 py-2 text-muted-foreground">
+                        <td className="px-1.5 py-1.5 text-muted-foreground whitespace-nowrap">
                           <span className="font-mono">
                             {new Date(lead.created_at).toLocaleDateString("en-US", {
                               month: "short",
@@ -1686,7 +1708,7 @@ export default function CRMDashboard() {
                         </td>
 
                         {/* Updated Date */}
-                        <td className="px-2 py-2 text-muted-foreground">
+                        <td className="px-1.5 py-1.5 text-muted-foreground whitespace-nowrap">
                           <span className="font-mono">
                             {new Date(lead.updated_at).toLocaleDateString("en-US", {
                               month: "short",
@@ -1697,21 +1719,21 @@ export default function CRMDashboard() {
                         </td>
 
                         {/* Emails Sent Count */}
-                        <td className="px-2 py-2 text-center">
-                          <span className="inline-flex items-center justify-center bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full">
+                        <td className="px-1.5 py-1.5 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center justify-center bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0 rounded-full">
                             {emailStatus[lead.email]?.emailsSentCount || 0}
                           </span>
                         </td>
 
                         {/* Last Email */}
-                        <td className="px-2 py-2 text-muted-foreground">
+                        <td className="px-1.5 py-1.5 text-muted-foreground">
                           {emailStatus[lead.email]?.lastEventType && emailStatus[lead.email]?.lastEventTimestamp ? (
                             <div className="flex flex-col" title={`${new Date(emailStatus[lead.email].lastEventTimestamp!).toLocaleString("en-US", {
                               timeZone: "Europe/Berlin",
                               dateStyle: "medium",
                               timeStyle: "short",
                             })} CET`}>
-                              <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] font-mono bg-muted px-1 py-0.5 rounded w-fit">
                                 {emailStatus[lead.email]?.lastEventType?.replace("email.", "")?.substring(0, 4) || ""}
                               </span>
                               <span className="text-[10px] mt-0.5">
@@ -1730,13 +1752,13 @@ export default function CRMDashboard() {
                         </td>
 
                         {/* Actions */}
-                        <td className="px-2 py-2">
-                          <div className="flex items-center gap-1">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
+                          <div className="flex items-center gap-0.5">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => openEnrichModal(lead)}
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               title="Enrich lead data"
                             >
                               <Sparkles className="w-3.5 h-3.5" />
@@ -1745,7 +1767,7 @@ export default function CRMDashboard() {
                               size="sm"
                               variant="ghost"
                               onClick={() => openEditDialog(lead)}
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               title="Edit lead"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -1754,7 +1776,7 @@ export default function CRMDashboard() {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleViewEmailEvents(lead.email)}
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               title="View details"
                             >
                               <Info className="w-3.5 h-3.5" />

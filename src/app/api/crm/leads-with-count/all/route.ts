@@ -250,15 +250,17 @@ export async function GET(request: NextRequest) {
         emailsSentCount: lead.emails_sent_count || 0
       };
 
-      // Contact list data
-      contactListData[lead.email.toLowerCase().trim()] = {
-        email: lead.email,
-        found: !!lead.audience_id,
-        audiences: lead.audience_id ? [{
-          id: lead.audience_id,
-          name: lead.audience_name
-        }] : []
-      };
+      // Contact list data (only for leads with email)
+      if (lead.email) {
+        contactListData[lead.email.toLowerCase().trim()] = {
+          email: lead.email,
+          found: !!lead.audience_id,
+          audiences: lead.audience_id ? [{
+            id: lead.audience_id,
+            name: lead.audience_name
+          }] : []
+        };
+      }
     });
 
     // Build filter summary for frontend

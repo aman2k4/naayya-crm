@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { Lead, LeadEnrichmentResult } from "@/types/crm";
+import { Lead, LeadEnrichmentResult, LeadEnrichmentProviderResult } from "@/types/crm";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check, ExternalLink, Sparkles } from "lucide-react";
+import { normalizeForComparison } from "@/lib/crm/enrichmentNormalization";
 
 interface EnrichLeadModalProps {
   lead: Lead | null;
@@ -23,14 +24,17 @@ interface EnrichLeadModalProps {
 
 type Phase = "preview" | "loading" | "results";
 
-type SearchField = "studio_name" | "person_name" | "email" | "location";
+type SearchField = "studio_name" | "person_name" | "email" | "location" | "current_platform" | "additional_info";
 
 const FIELD_LABELS: Record<string, string> = {
+  email: "Email",
   first_name: "First Name",
   last_name: "Last Name",
   phone_number: "Phone",
   website: "Website",
   current_platform: "Platform",
+  classes_per_week_estimate: "Classes / Week",
+  instructors_count_estimate: "Instructors",
   city: "City",
   state: "State",
   country_code: "Country",
@@ -53,12 +57,16 @@ export default function EnrichLeadModal({
   const [searchFields, setSearchFields] = useState<Set<SearchField>>(new Set(["email"]));
   const { toast } = useToast();
 
-  // Reset search fields when lead changes
+  // Reset search fields when lead changes - default to studio_name + email if available
   useEffect(() => {
     if (lead && isOpen) {
-      const defaults = new Set<SearchField>(["email"]);
+      const defaults = new Set<SearchField>();
       if (lead.studio_name?.trim()) defaults.add("studio_name");
-      else if (lead.first_name || lead.last_name) defaults.add("person_name");
+      if (lead.email?.trim()) defaults.add("email");
+      // If neither studio nor email, fall back to person name
+      if (defaults.size === 0 && (lead.first_name || lead.last_name)) {
+        defaults.add("person_name");
+      }
       setSearchFields(defaults);
     }
   }, [lead, isOpen]);
@@ -122,10 +130,19 @@ export default function EnrichLeadModal({
     setIsApplying(true);
 
     try {
+      const coerceUpdateValue = (fieldName: string, raw: string): string | number => {
+        if (fieldName === "classes_per_week_estimate" || fieldName === "instructors_count_estimate") {
+          const digits = raw.replace(/[^\d]/g, "");
+          const n = parseInt(digits, 10);
+          return Number.isFinite(n) ? n : raw;
+        }
+        return raw;
+      };
+
       const response = await fetch("/api/crm/leads-with-count", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: lead.id, [field]: value }),
+        body: JSON.stringify({ id: lead.id, [field]: coerceUpdateValue(field, value) }),
       });
 
       if (!response.ok) throw new Error("Failed to update field");
@@ -147,14 +164,38 @@ export default function EnrichLeadModal({
 
   const handleApplyAll = async () => {
     if (!lead || !enrichmentResult) return;
+    // Default to Gemini for backwards UX; Perplexity has its own button below.
+    return handleApplyAllFromProvider("gemini");
+  };
+
+  const handleApplyAllFromProvider = async (provider: "gemini" | "perplexity") => {
+    if (!lead || !enrichmentResult) return;
     setIsApplying(true);
 
-    const fieldsToApply: Record<string, string> = {};
-    for (const [field, value] of Object.entries(enrichmentResult.newFields)) {
-      if (!appliedFields.has(field)) fieldsToApply[field] = value;
+    const providerResult = enrichmentResult.providers[provider];
+
+    const fieldsToApply: Record<string, string | number> = {};
+    for (const [field, value] of Object.entries(providerResult.newFields)) {
+      if (!appliedFields.has(field)) {
+        if (field === "classes_per_week_estimate" || field === "instructors_count_estimate") {
+          const digits = value.replace(/[^\d]/g, "");
+          const n = parseInt(digits, 10);
+          if (Number.isFinite(n)) fieldsToApply[field] = n;
+        } else {
+          fieldsToApply[field] = value;
+        }
+      }
     }
-    for (const conflict of enrichmentResult.conflicts) {
-      if (!appliedFields.has(conflict.field)) fieldsToApply[conflict.field] = conflict.found;
+    for (const conflict of providerResult.conflicts) {
+      if (!appliedFields.has(conflict.field)) {
+        if (conflict.field === "classes_per_week_estimate" || conflict.field === "instructors_count_estimate") {
+          const digits = conflict.found.replace(/[^\d]/g, "");
+          const n = parseInt(digits, 10);
+          if (Number.isFinite(n)) fieldsToApply[conflict.field] = n;
+        } else {
+          fieldsToApply[conflict.field] = conflict.found;
+        }
+      }
     }
 
     if (Object.keys(fieldsToApply).length === 0) {
@@ -187,16 +228,72 @@ export default function EnrichLeadModal({
   const hasStudioName = lead.studio_name?.trim();
   const hasPersonName = lead.first_name || lead.last_name;
   const personName = [lead.first_name, lead.last_name].filter(Boolean).join(" ");
+  const hasEmail = lead.email?.trim();
   const hasLocation = lead.city || lead.state || lead.country_code;
   const locationText = [lead.city, lead.state, lead.country_code].filter(Boolean).join(", ");
+  const hasPlatform = lead.current_platform?.trim();
+  const hasAdditionalInfo = lead.additional_info?.trim();
+  const additionalInfoText = lead.additional_info?.trim() || "";
 
-  const hasNewFields = enrichmentResult && Object.keys(enrichmentResult.newFields).length > 0;
-  const hasConflicts = enrichmentResult && enrichmentResult.conflicts.length > 0;
-  const hasAnyResults = hasNewFields || hasConflicts;
+  const gemini = enrichmentResult?.providers.gemini;
+  const perplexity = enrichmentResult?.providers.perplexity;
+
+  const hostnameForSource = (source: string) => {
+    try {
+      return new URL(source).hostname.replace("www.", "");
+    } catch {
+      return source;
+    }
+  };
+
+  const providerHasAny = (r: LeadEnrichmentProviderResult | undefined | null) => {
+    if (!r) return false;
+    return Object.keys(r.found).length > 0;
+  };
+
+  const hasAnyResults = providerHasAny(gemini) || providerHasAny(perplexity);
+
+  const orderedFields = Object.keys(FIELD_LABELS);
+
+  const allFields = (() => {
+    const s = new Set<string>();
+    for (const f of orderedFields) s.add(f);
+    for (const f of Object.keys(gemini?.found || {})) s.add(f);
+    for (const f of Object.keys(perplexity?.found || {})) s.add(f);
+    return Array.from(s);
+  })();
+
+  const getCurrentValue = (field: string) => {
+    const v = (lead as unknown as Record<string, unknown>)[field];
+    if (v === null || v === undefined) return "";
+    return String(v);
+  };
+
+  const diffStatus = (field: string, a: string, b: string) => {
+    const na = normalizeForComparison(field, a);
+    const nb = normalizeForComparison(field, b);
+    if (!na && !nb) return "empty";
+    if (na && nb && na === nb) return "match";
+    return "diff";
+  };
+
+  const isSameAsCurrent = (field: string, value: string) => {
+    if (!value) return true;
+    const current = getCurrentValue(field);
+    return normalizeForComparison(field, current) === normalizeForComparison(field, value);
+  };
+
+  const providerApplyable = (r: LeadEnrichmentProviderResult | undefined | null) => {
+    if (!r) return [];
+    const keys = new Set<string>();
+    for (const k of Object.keys(r.newFields || {})) keys.add(k);
+    for (const c of r.conflicts || []) keys.add(c.field);
+    return Array.from(keys);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[380px] p-4 overflow-hidden">
+      <DialogContent className="sm:max-w-[920px] p-4 overflow-hidden">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-1.5 text-sm font-medium">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -243,15 +340,16 @@ export default function EnrichLeadModal({
               </div>
 
               {/* Email */}
-              <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
+              <div className={`flex items-center gap-2 p-2 rounded border ${hasEmail ? 'bg-muted/30' : 'bg-muted/10 opacity-50'}`}>
                 <Checkbox
                   id="search-email"
                   checked={searchFields.has("email")}
                   onCheckedChange={() => toggleSearchField("email")}
+                  disabled={!hasEmail}
                 />
                 <Label htmlFor="search-email" className="flex-1 text-xs cursor-pointer">
                   <span className="text-muted-foreground">Email:</span>{" "}
-                  <span className="font-medium">{lead.email}</span>
+                  <span className="font-medium">{hasEmail || "-"}</span>
                 </Label>
               </div>
 
@@ -266,6 +364,34 @@ export default function EnrichLeadModal({
                 <Label htmlFor="search-location" className="flex-1 text-xs cursor-pointer">
                   <span className="text-muted-foreground">Location:</span>{" "}
                   <span className="font-medium">{locationText || "-"}</span>
+                </Label>
+              </div>
+
+              {/* Platform */}
+              <div className={`flex items-center gap-2 p-2 rounded border ${hasPlatform ? 'bg-muted/30' : 'bg-muted/10 opacity-50'}`}>
+                <Checkbox
+                  id="search-platform"
+                  checked={searchFields.has("current_platform")}
+                  onCheckedChange={() => toggleSearchField("current_platform")}
+                  disabled={!hasPlatform}
+                />
+                <Label htmlFor="search-platform" className="flex-1 text-xs cursor-pointer">
+                  <span className="text-muted-foreground">Platform:</span>{" "}
+                  <span className="font-medium">{hasPlatform || "-"}</span>
+                </Label>
+              </div>
+
+              {/* Additional Info */}
+              <div className={`flex items-center gap-2 p-2 rounded border ${hasAdditionalInfo ? 'bg-muted/30' : 'bg-muted/10 opacity-50'}`}>
+                <Checkbox
+                  id="search-additional-info"
+                  checked={searchFields.has("additional_info")}
+                  onCheckedChange={() => toggleSearchField("additional_info")}
+                  disabled={!hasAdditionalInfo}
+                />
+                <Label htmlFor="search-additional-info" className="flex-1 text-xs cursor-pointer">
+                  <span className="text-muted-foreground">Additional Info:</span>{" "}
+                  <span className="font-medium truncate">{additionalInfoText ? (additionalInfoText.length > 50 ? additionalInfoText.slice(0, 50) + "..." : additionalInfoText) : "-"}</span>
                 </Label>
               </div>
             </div>
@@ -296,72 +422,160 @@ export default function EnrichLeadModal({
             {!hasAnyResults ? (
               <p className="text-xs text-muted-foreground text-center py-4">No info found.</p>
             ) : (
-              <div className="max-h-[280px] overflow-y-auto overflow-x-hidden space-y-1 pr-1">
-                {/* New fields */}
-                {hasNewFields && Object.entries(enrichmentResult.newFields).map(([field, value]) => (
-                  <div
-                    key={field}
-                    className="flex items-center justify-between gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 rounded px-2 py-1.5"
-                  >
-                    <div className="min-w-0 flex-1 overflow-hidden">
-                      <div className="text-[10px] text-muted-foreground">{FIELD_LABELS[field] || field}</div>
-                      <div className="text-xs font-medium truncate max-w-[260px]">{value}</div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={appliedFields.has(field) ? "ghost" : "default"}
-                      onClick={() => handleApplyField(field, value)}
-                      disabled={isApplying || appliedFields.has(field)}
-                      className="h-6 text-[10px] px-2 shrink-0"
-                    >
-                      {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
-                    </Button>
+              <div className="max-h-[380px] overflow-y-auto overflow-x-hidden pr-1">
+                <div className="grid grid-cols-[160px_1fr_1fr] gap-2 items-start mb-2">
+                  <div />
+                  <div className="text-[10px] text-muted-foreground">
+                    {gemini?.error ? (
+                      <span className="text-destructive">Gemini error: {gemini.error}</span>
+                    ) : (
+                      "Gemini results"
+                    )}
                   </div>
-                ))}
+                  <div className="text-[10px] text-muted-foreground">
+                    {perplexity?.error ? (
+                      <span className="text-destructive">Perplexity error: {perplexity.error}</span>
+                    ) : (
+                      "Perplexity results"
+                    )}
+                  </div>
+                </div>
 
-                {/* Conflicts */}
-                {hasConflicts && enrichmentResult.conflicts.map((conflict) => (
-                  <div
-                    key={conflict.field}
-                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded px-2 py-1.5"
-                  >
-                    <div className="text-[10px] text-muted-foreground">{FIELD_LABELS[conflict.field] || conflict.field}</div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1 text-xs overflow-hidden">
-                        <span className="line-through text-red-500 truncate">{conflict.current}</span>
-                        <span className="text-muted-foreground mx-1">→</span>
-                        <span className="text-green-600 font-medium truncate">{conflict.found}</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={appliedFields.has(conflict.field) ? "ghost" : "outline"}
-                        onClick={() => handleApplyField(conflict.field, conflict.found)}
-                        disabled={isApplying || appliedFields.has(conflict.field)}
-                        className="h-6 text-[10px] px-2 shrink-0"
+                <div className="grid grid-cols-[160px_1fr_1fr] gap-2 items-center sticky top-0 bg-background pb-2">
+                  <div className="text-[11px] text-muted-foreground">Field</div>
+                  <div className="text-[11px] text-muted-foreground">Gemini</div>
+                  <div className="text-[11px] text-muted-foreground">Perplexity</div>
+                </div>
+
+                <div className="space-y-2">
+                  {allFields.map((field) => {
+                    const g = gemini?.found?.[field] || "";
+                    const p = perplexity?.found?.[field] || "";
+                    const status = diffStatus(field, g, p);
+                    const current = getCurrentValue(field);
+
+                    if (!g && !p) return null;
+
+                    const rowClass =
+                      status === "match"
+                        ? "border-green-200 dark:border-green-900/50 bg-green-50/60 dark:bg-green-950/25"
+                        : status === "diff"
+                          ? "border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20"
+                          : "border-border bg-muted/10";
+
+                    return (
+                      <div
+                        key={field}
+                        className={`border rounded p-2 ${rowClass}`}
                       >
-                        {appliedFields.has(conflict.field) ? <Check className="w-3 h-3" /> : "Use"}
-                      </Button>
+                        <div className="grid grid-cols-[160px_1fr_1fr] gap-2">
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium">{FIELD_LABELS[field] || field}</div>
+                            {current && (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                Current: {current}
+                              </div>
+                            )}
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              {status === "match" ? "Match" : status === "diff" ? "Different" : ""}
+                            </div>
+                          </div>
+
+                          {/* Gemini cell */}
+                          <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="text-xs font-medium break-words">{g || "-"}</div>
+                              {g && (
+                                <Button
+                                  size="sm"
+                                  variant={appliedFields.has(field) ? "ghost" : "default"}
+                                  onClick={() => handleApplyField(field, g)}
+                                  disabled={isApplying || appliedFields.has(field) || isSameAsCurrent(field, g)}
+                                  className="h-6 text-[10px] px-2 shrink-0"
+                                >
+                                  {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
+                                </Button>
+                              )}
+                            </div>
+                            {g && isSameAsCurrent(field, g) && (
+                              <div className="text-[10px] text-muted-foreground mt-1">Same as current</div>
+                            )}
+                            {field === "website" && g && gemini?.websiteStatus && (
+                              <div className={`text-[10px] mt-1 ${gemini.websiteStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                {gemini.websiteStatus.valid
+                                  ? `✓ Working (${gemini.websiteStatus.status})`
+                                  : `✗ ${gemini.websiteStatus.error || `Error ${gemini.websiteStatus.status}`}`}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Perplexity cell */}
+                          <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="text-xs font-medium break-words">{p || "-"}</div>
+                              {p && (
+                                <Button
+                                  size="sm"
+                                  variant={appliedFields.has(field) ? "ghost" : "outline"}
+                                  onClick={() => handleApplyField(field, p)}
+                                  disabled={isApplying || appliedFields.has(field) || isSameAsCurrent(field, p)}
+                                  className="h-6 text-[10px] px-2 shrink-0"
+                                >
+                                  {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
+                                </Button>
+                              )}
+                            </div>
+                            {p && isSameAsCurrent(field, p) && (
+                              <div className="text-[10px] text-muted-foreground mt-1">Same as current</div>
+                            )}
+                            {field === "website" && p && perplexity?.websiteStatus && (
+                              <div className={`text-[10px] mt-1 ${perplexity.websiteStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                {perplexity.websiteStatus.valid
+                                  ? `✓ Working (${perplexity.websiteStatus.status})`
+                                  : `✗ ${perplexity.websiteStatus.error || `Error ${perplexity.websiteStatus.status}`}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Sources (once) */}
+                {(gemini?.sources?.length || 0) > 0 || (perplexity?.sources?.length || 0) > 0 ? (
+                  <div className="grid grid-cols-[160px_1fr_1fr] gap-2 mt-3 pt-3 border-t">
+                    <div className="text-[11px] text-muted-foreground">Sources</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(gemini?.sources || []).slice(0, 5).map((source, i) => (
+                        <a
+                          key={`gemini-source-${i}`}
+                          href={source}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          {hostnameForSource(source)}
+                        </a>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(perplexity?.sources || []).slice(0, 5).map((source, i) => (
+                        <a
+                          key={`perplexity-source-${i}`}
+                          href={source}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          {hostnameForSource(source)}
+                        </a>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Sources */}
-            {enrichmentResult.sources.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {enrichmentResult.sources.slice(0, 3).map((source, i) => (
-                  <a
-                    key={i}
-                    href={source}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary"
-                  >
-                    <ExternalLink className="w-2.5 h-2.5" />
-                    {new URL(source).hostname.replace('www.', '')}
-                  </a>
-                ))}
+                ) : null}
               </div>
             )}
 
@@ -369,17 +583,33 @@ export default function EnrichLeadModal({
               <Button variant="ghost" size="sm" onClick={handleClose} className="h-7 text-xs px-2">
                 Close
               </Button>
-              {hasAnyResults && (
+              {gemini && (
                 <Button
                   size="sm"
-                  onClick={handleApplyAll}
-                  disabled={isApplying || (
-                    Object.keys(enrichmentResult.newFields).every(f => appliedFields.has(f)) &&
-                    enrichmentResult.conflicts.every(c => appliedFields.has(c.field))
-                  )}
+                  onClick={() => handleApplyAllFromProvider("gemini")}
+                  disabled={
+                    isApplying ||
+                    providerApplyable(gemini).length === 0 ||
+                    providerApplyable(gemini).every((f) => appliedFields.has(f))
+                  }
                   className="h-7 text-xs px-2"
                 >
-                  {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply All"}
+                  {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply All (Gemini)"}
+                </Button>
+              )}
+              {perplexity && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleApplyAllFromProvider("perplexity")}
+                  disabled={
+                    isApplying ||
+                    providerApplyable(perplexity).length === 0 ||
+                    providerApplyable(perplexity).every((f) => appliedFields.has(f))
+                  }
+                  className="h-7 text-xs px-2"
+                >
+                  {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply All (Perplexity)"}
                 </Button>
               )}
             </div>

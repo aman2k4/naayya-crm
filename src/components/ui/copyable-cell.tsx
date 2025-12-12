@@ -26,13 +26,13 @@ export function CopyableCell({ value, displayValue, className }: CopyableCellPro
   return (
     <div 
       className={cn(
-        "flex items-center gap-2 group cursor-pointer",
+        "flex min-w-0 items-center gap-2 group cursor-pointer",
         className
       )}
       onClick={copyToClipboard}
     >
-      <span className="truncate">{displayValue || value}</span>
-      <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+      <span className="truncate flex-1 min-w-0">{displayValue || value}</span>
+      <span className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         {copied ? (
           <Check className="h-4 w-4 text-green-500" />
         ) : (

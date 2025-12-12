@@ -297,7 +297,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch ALL audiences for each unique email (not just the most recent one)
-    const uniqueEmails: string[] = Array.from(new Set(leads?.map((lead: any) => lead.email.toLowerCase().trim()) || []));
+    const uniqueEmails: string[] = Array.from(new Set(leads?.map((lead: any) => lead.email?.toLowerCase().trim()).filter(Boolean) || []));
 
     if (uniqueEmails.length > 0) {
       const { data: allContactAudiences } = await supabase

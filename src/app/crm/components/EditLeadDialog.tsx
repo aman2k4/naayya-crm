@@ -66,6 +66,10 @@ export default function EditLeadDialog({
         notes: lead.notes,
         phone_number: lead.phone_number,
         additional_info: lead.additional_info,
+        website: lead.website,
+        instagram: lead.instagram,
+        facebook: lead.facebook,
+        business_type: lead.business_type,
       });
     }
   }, [lead]);
@@ -99,7 +103,7 @@ export default function EditLeadDialog({
       }
 
       const updatedLead = await response.json();
-      onLeadUpdated(updatedLead);
+      onLeadUpdated(updatedLead.data);
       onOpenChange(false);
 
       toast({
@@ -184,6 +188,61 @@ export default function EditLeadDialog({
               onChange={(e) => handleInputChange("phone_number", e.target.value)}
               className="col-span-3"
               placeholder="Phone number"
+            />
+          </div>
+
+          {/* Website */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="website" className="text-right text-sm">
+              Website
+            </Label>
+            <Input
+              id="website"
+              value={(formData as any).website || ""}
+              onChange={(e) => handleInputChange("website", e.target.value)}
+              className="col-span-3"
+              placeholder="https://example.com"
+            />
+          </div>
+
+          {/* Social */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="instagram" className="text-right text-sm">
+              IG
+            </Label>
+            <Input
+              id="instagram"
+              value={(formData as any).instagram || ""}
+              onChange={(e) => handleInputChange("instagram", e.target.value)}
+              className="col-span-3"
+              placeholder="https://instagram.com/..."
+            />
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="facebook" className="text-right text-sm">
+              FB
+            </Label>
+            <Input
+              id="facebook"
+              value={(formData as any).facebook || ""}
+              onChange={(e) => handleInputChange("facebook", e.target.value)}
+              className="col-span-3"
+              placeholder="https://facebook.com/..."
+            />
+          </div>
+
+          {/* Business Type */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="business_type" className="text-right text-sm">
+              Type
+            </Label>
+            <Input
+              id="business_type"
+              value={(formData as any).business_type || ""}
+              onChange={(e) => handleInputChange("business_type", e.target.value)}
+              className="col-span-3"
+              placeholder="e.g., yoga studio"
             />
           </div>
 

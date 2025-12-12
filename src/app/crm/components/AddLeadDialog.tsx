@@ -42,6 +42,10 @@ export default function AddLeadDialog({
     first_name: '',
     last_name: '',
     phone_number: '',
+    website: '',
+    instagram: '',
+    facebook: '',
+    business_type: '',
     studio_name: '',
     lead_source: '',
     current_platform: '',
@@ -59,6 +63,10 @@ export default function AddLeadDialog({
       first_name: '',
       last_name: '',
       phone_number: '',
+      website: '',
+      instagram: '',
+      facebook: '',
+      business_type: '',
       studio_name: '',
       lead_source: '',
       current_platform: '',
@@ -200,6 +208,48 @@ export default function AddLeadDialog({
               onChange={(e) => handleInputChange('phone_number', e.target.value)}
               placeholder="Enter phone number"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="website">Website</Label>
+              <Input
+                id="website"
+                value={formData.website || ""}
+                onChange={(e) => handleInputChange("website", e.target.value)}
+                placeholder="https://example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="business_type">Business Type</Label>
+              <Input
+                id="business_type"
+                value={formData.business_type || ""}
+                onChange={(e) => handleInputChange("business_type", e.target.value)}
+                placeholder="e.g., yoga studio, pilates studio"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="instagram">Instagram</Label>
+              <Input
+                id="instagram"
+                value={formData.instagram || ""}
+                onChange={(e) => handleInputChange("instagram", e.target.value)}
+                placeholder="https://instagram.com/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="facebook">Facebook</Label>
+              <Input
+                id="facebook"
+                value={formData.facebook || ""}
+                onChange={(e) => handleInputChange("facebook", e.target.value)}
+                placeholder="https://facebook.com/..."
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -18,6 +18,10 @@ const createLeadSchema = z.object({
   notes: z.string().optional(),
   phone_number: z.string().optional(),
   additional_info: z.string().optional(),
+  website: z.string().optional(),
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  business_type: z.string().optional(),
 });
 
 const CET_TIMEZONE = 'Europe/Berlin';

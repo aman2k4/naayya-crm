@@ -95,6 +95,9 @@ export default function CRMDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [sortField, setSortField] = useState<"updated_at" | "last_email">(
+    "last_email"
+  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
@@ -154,6 +157,8 @@ export default function CRMDashboard() {
       lastEmailTo?: string;
       minEmailsSent?: string;
       maxEmailsSent?: string;
+      sort?: "updated_at" | "last_email";
+      dir?: "asc" | "desc";
     }) => {
       const params = new URLSearchParams(searchParams);
 
@@ -254,6 +259,24 @@ export default function CRMDashboard() {
         }
       }
 
+      // Update or remove sort parameter (default: last_email)
+      if (filters.sort !== undefined) {
+        if (filters.sort && filters.sort !== "last_email") {
+          params.set("sort", filters.sort);
+        } else {
+          params.delete("sort");
+        }
+      }
+
+      // Update or remove dir parameter (default: desc)
+      if (filters.dir !== undefined) {
+        if (filters.dir && filters.dir !== "desc") {
+          params.set("dir", filters.dir);
+        } else {
+          params.delete("dir");
+        }
+      }
+
       const newURL = params.toString() ? `?${params.toString()}` : "";
       router.push(`/crm${newURL}`, { scroll: false });
     },
@@ -277,6 +300,11 @@ export default function CRMDashboard() {
     const urlMaxEmailsSent = searchParams.get("maxEmailsSent") || "";
     const urlPage = parseInt(searchParams.get("page") || "1");
     const urlLimit = parseInt(searchParams.get("limit") || "20");
+    const urlSort =
+      (searchParams.get("sort") as "updated_at" | "last_email" | null) ||
+      "last_email";
+    const urlDir =
+      (searchParams.get("dir") as "asc" | "desc" | null) || "desc";
 
     // Set state without triggering re-fetches
     setSearchTerm(urlSearch);
@@ -294,6 +322,8 @@ export default function CRMDashboard() {
     );
     setCurrentPage(urlPage);
     setRowsPerPage(urlLimit);
+    setSortField(urlSort === "updated_at" ? "updated_at" : "last_email");
+    setSortDirection(urlDir === "asc" ? "asc" : "desc");
 
     return {
       search: urlSearch,
@@ -307,6 +337,8 @@ export default function CRMDashboard() {
       maxEmailsSent: urlMaxEmailsSent,
       page: urlPage,
       limit: urlLimit,
+      sort: urlSort === "updated_at" ? "updated_at" : "last_email",
+      dir: urlDir === "asc" ? "asc" : "desc",
     };
   }, [searchParams]);
 
@@ -363,6 +395,11 @@ export default function CRMDashboard() {
     return Number.isNaN(parsed) ? null : parsed;
   };
 
+  const getLeadUpdatedAtTimestamp = (lead: Lead) => {
+    const parsed = Date.parse(lead.updated_at);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
   const sortLeadListByLastEvent = (
     leadList: Lead[],
     direction: "asc" | "desc",
@@ -389,13 +426,76 @@ export default function CRMDashboard() {
     });
   };
 
-  // Sort by last email event timestamp, newest first by default
-  const sortLeads = () => {
-    const nextDirection = sortDirection === "asc" ? "desc" : "asc";
-    const sortedLeads = sortLeadListByLastEvent(leads, nextDirection);
+  const sortLeadListByUpdatedAt = (leadList: Lead[], direction: "asc" | "desc") => {
+    return [...leadList].sort((a, b) => {
+      const aTimestamp = getLeadUpdatedAtTimestamp(a);
+      const bTimestamp = getLeadUpdatedAtTimestamp(b);
+      const comparison =
+        direction === "asc" ? aTimestamp - bTimestamp : bTimestamp - aTimestamp;
+      if (comparison !== 0) return comparison;
+      return Date.parse(b.created_at) - Date.parse(a.created_at);
+    });
+  };
 
-    setLeads(sortedLeads);
+  const applySort = (
+    leadList: Lead[],
+    field: "updated_at" | "last_email",
+    direction: "asc" | "desc",
+    statusMap?: Record<string, EmailStatus>
+  ) => {
+    if (field === "updated_at") {
+      return sortLeadListByUpdatedAt(leadList, direction);
+    }
+    return sortLeadListByLastEvent(leadList, direction, statusMap);
+  };
+
+  const refetchFirstPageWithCurrentFilters = (
+    nextSortField: "updated_at" | "last_email" = sortField,
+    nextDir: "asc" | "desc" = sortDirection
+  ) => {
+    const apiCountry = selectedCountry === "__all__" ? "" : selectedCountry;
+    const apiPlatform = selectedPlatform === "__all__" ? "" : selectedPlatform;
+    const apiSource = selectedSource === "__all__" ? "" : selectedSource;
+    const apiEmailStatus =
+      selectedEmailStatus === "__all__" ? "" : selectedEmailStatus;
+
+    // Clear selections when changing ordering (prevents confusing bulk ops)
+    setSelectedLeads(new Set());
+    setIsAllFilteredSelected(false);
+    setAllFilteredLeads([]);
+
+    updateURL({ page: 1, sort: nextSortField, dir: nextDir });
+
+    fetchLeads(
+      1,
+      searchTerm,
+      apiCountry,
+      apiEmailStatus,
+      undefined,
+      apiPlatform,
+      apiSource,
+      lastEmailFrom,
+      lastEmailTo,
+      minEmailsSent,
+      maxEmailsSent,
+      nextSortField,
+      nextDir
+    );
+  };
+
+  // Clicking a sort header toggles direction (or switches field and resets to desc)
+  const toggleSort = (field: "updated_at" | "last_email") => {
+    const nextDirection =
+      sortField === field ? (sortDirection === "asc" ? "desc" : "asc") : "desc";
+    setSortField(field);
     setSortDirection(nextDirection);
+    refetchFirstPageWithCurrentFilters(field, nextDirection);
+  };
+
+  const handleSortFieldChange = (value: "updated_at" | "last_email") => {
+    setSortField(value);
+    setSortDirection("desc");
+    refetchFirstPageWithCurrentFilters(value, "desc");
   };
 
   const handleViewEmailEvents = (email: string) => {
@@ -434,7 +534,9 @@ export default function CRMDashboard() {
     lastEmailFromParam = lastEmailFrom,
     lastEmailToParam = lastEmailTo,
     minEmailsSentParam = minEmailsSent,
-    maxEmailsSentParam = maxEmailsSent
+    maxEmailsSentParam = maxEmailsSent,
+    sortFieldParam: "updated_at" | "last_email" = sortField,
+    sortDirParam: "asc" | "desc" = sortDirection
   ) => {
     try {
       setLoading(true);
@@ -445,6 +547,8 @@ export default function CRMDashboard() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: (limit || rowsPerPage).toString(),
+        sort: sortFieldParam,
+        dir: sortDirParam,
         ...(search && { search: search.trim() }),
         ...(countryCode && { country_code: countryCode.trim() }),
         ...(platform && { platform: platform.trim() }),
@@ -485,13 +589,8 @@ export default function CRMDashboard() {
         const leadsData = result.data.leads || [];
         const emailStatusData = result.data.emailStatus as Record<string, EmailStatus> | undefined;
 
-        setLeads(
-          sortLeadListByLastEvent(
-            leadsData,
-            sortDirection,
-            emailStatusData
-          )
-        );
+        // Keep server ordering so pagination and sort always match
+        setLeads(leadsData);
         setPagination(result.data.pagination);
         setCurrentPage(page);
 
@@ -874,6 +973,8 @@ export default function CRMDashboard() {
           platform: selectedPlatform.trim(),
         }),
         ...(selectedSource !== "__all__" && { source: selectedSource.trim() }),
+        sort: sortField,
+        dir: sortDirection,
         ...(lastEmailFrom.trim() && { lastEmailFrom: lastEmailFrom.trim() }),
         ...(lastEmailTo.trim() && { lastEmailTo: lastEmailTo.trim() }),
         ...(minEmailsSent.trim() && { minEmailsSent: minEmailsSent.trim() }),
@@ -895,13 +996,9 @@ export default function CRMDashboard() {
 
       // Handle new API response structure
       if (result.success && result.data) {
-        const sortedResults = sortLeadListByLastEvent(
-          result.data.leads || [],
-          sortDirection,
-          result.data.emailStatus || emailStatus
-        );
-        setAllFilteredLeads(sortedResults);
-        return sortedResults;
+        const leadsData = result.data.leads || [];
+        setAllFilteredLeads(leadsData);
+        return leadsData;
       } else {
         console.error("API response error:", result);
         throw new Error(result.error || "Failed to fetch all filtered leads");
@@ -1249,6 +1346,26 @@ export default function CRMDashboard() {
 
       {/* Compact Filters Bar */}
       <div className="flex items-center gap-2 mb-3 flex-shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 h-8 px-2 border border-input rounded-md bg-background">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            Sort
+          </span>
+          <Select
+            value={sortField}
+            onValueChange={(value) =>
+              handleSortFieldChange(value as "updated_at" | "last_email")
+            }
+          >
+            <SelectTrigger className="w-[140px] h-6 text-xs bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="last_email">Last Email</SelectItem>
+              <SelectItem value="updated_at">Updated</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <Select value={selectedCountry} onValueChange={handleCountryChange}>
           <SelectTrigger className="w-32 h-8 text-xs bg-background">
             <SelectValue placeholder="All Countries" />
@@ -1456,15 +1573,33 @@ export default function CRMDashboard() {
                     <th className="px-2 py-2 text-left font-medium">Source</th>
                     <th className="px-2 py-2 text-left font-medium">Platform</th>
                     <th className="px-2 py-2 text-left font-medium">Created</th>
+                    <th
+                      className="px-2 py-2 text-left font-medium cursor-pointer hover:bg-muted transition-colors"
+                      onClick={() => toggleSort("updated_at")}
+                      title="Sort by updated time"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Updated</span>
+                        {sortField === "updated_at" && (
+                          <span className="text-muted-foreground">
+                            {sortDirection === "asc" ? "↑" : "↓"}
+                          </span>
+                        )}
+                      </div>
+                    </th>
                     <th className="px-2 py-2 font-medium text-center">Sent</th>
                     <th
                       className="px-2 py-2 text-left font-medium cursor-pointer hover:bg-muted transition-colors"
-                      onClick={sortLeads}
+                      onClick={() => toggleSort("last_email")}
                       title="Sort by last email event"
                     >
                       <div className="flex items-center gap-1">
                         <span>Last Email</span>
-                        <span className="text-muted-foreground">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        {sortField === "last_email" && (
+                          <span className="text-muted-foreground">
+                            {sortDirection === "asc" ? "↑" : "↓"}
+                          </span>
+                        )}
                       </div>
                     </th>
                     <th className="px-2 py-2 text-left font-medium w-10"></th>
@@ -1543,6 +1678,17 @@ export default function CRMDashboard() {
                         <td className="px-2 py-2 text-muted-foreground">
                           <span className="font-mono">
                             {new Date(lead.created_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "2-digit",
+                            })}
+                          </span>
+                        </td>
+
+                        {/* Updated Date */}
+                        <td className="px-2 py-2 text-muted-foreground">
+                          <span className="font-mono">
+                            {new Date(lead.updated_at).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                               year: "2-digit",

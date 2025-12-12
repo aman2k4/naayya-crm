@@ -38,6 +38,32 @@ const VALID_LEAD_COLUMNS = new Set([
   'additional_info',
 ]);
 
+const normalizeForComparison = (field: string, value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+
+  if (field === 'phone_number') {
+    // Compare by digits only (keep leading + if present)
+    const hasPlus = raw.startsWith('+');
+    const digits = raw.replace(/[^\d]/g, '');
+    if (!digits) return '';
+    return (hasPlus ? '+' : '') + digits;
+  }
+
+  if (field === 'website') {
+    // Compare ignoring protocol, www, trailing slash, query, hash
+    let s = raw.toLowerCase();
+    s = s.replace(/^https?:\/\//, '');
+    s = s.replace(/^www\./, '');
+    s = s.split('#')[0].split('?')[0];
+    s = s.replace(/\/+$/, '');
+    return s;
+  }
+
+  return raw.toLowerCase();
+};
+
 interface LeadRecord {
   id: string;
   email: string;
@@ -183,7 +209,9 @@ IMPORTANT:
     const currentValue = typedLead[field];
 
     if (currentValue && String(currentValue).trim()) {
-      if (String(currentValue).toLowerCase().trim() !== foundValue.toLowerCase().trim()) {
+      const normalizedCurrent = normalizeForComparison(field, currentValue);
+      const normalizedFound = normalizeForComparison(field, foundValue);
+      if (normalizedCurrent !== normalizedFound) {
         conflicts.push({
           field,
           current: String(currentValue),

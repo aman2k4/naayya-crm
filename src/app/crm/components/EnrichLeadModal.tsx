@@ -67,6 +67,7 @@ export default function EnrichLeadModal({
     setPhase("preview");
     setEnrichmentResult(null);
     setAppliedFields(new Set());
+    setIsApplying(false);
     onOpenChange(false);
   };
 

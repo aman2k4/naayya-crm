@@ -153,6 +153,8 @@ export async function GET(request: NextRequest) {
     const emailStatuses = searchParams.getAll('emailStatus') || [];
     const platform = searchParams.get('platform') || '';
     const source = searchParams.get('source') || '';
+    const sort = (searchParams.get('sort') || 'last_email').toLowerCase();
+    const dir = (searchParams.get('dir') || 'desc').toLowerCase();
     const lastEmailFrom = searchParams.get('lastEmailFrom');
     const lastEmailTo = searchParams.get('lastEmailTo');
     const { number: minEmailsSent, raw: minEmailsSentRaw } = parseNumberFilter(
@@ -181,6 +183,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid maxEmailsSent' }, { status: 400 });
     }
 
+    if (!['last_email', 'updated_at'].includes(sort)) {
+      return NextResponse.json({ error: 'Invalid sort' }, { status: 400 });
+    }
+
+    if (!['asc', 'desc'].includes(dir)) {
+      return NextResponse.json({ error: 'Invalid dir' }, { status: 400 });
+    }
+
     console.log('Fetching all filtered leads with params:', { search, countryCode, city, cities, emailStatuses, platform, source, lastEmailFromUTC, lastEmailToUTC, minEmailsSent, maxEmailsSent });
 
     const filters: LeadFilters = {
@@ -199,13 +209,19 @@ export async function GET(request: NextRequest) {
 
     // Build base query for filtering (without pagination)
     let query = applyLeadFilters(
-      supabase
-        .from('leads_with_email_count')
-        .select('*')
-        .order('last_event_timestamp', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false }),
+      supabase.from('leads_with_email_count').select('*'),
       filters
     );
+
+    if (sort === 'updated_at') {
+      query = query
+        .order('updated_at', { ascending: dir === 'asc', nullsFirst: false })
+        .order('created_at', { ascending: false });
+    } else {
+      query = query
+        .order('last_event_timestamp', { ascending: dir === 'asc', nullsFirst: false })
+        .order('created_at', { ascending: false });
+    }
 
     const { data: leads, error: queryError } = await query;
 

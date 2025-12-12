@@ -157,6 +157,8 @@ export async function GET(request: NextRequest) {
     const ids = idsParam ? idsParam.split(',').map(id => id.trim()).filter(id => id) : [];
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const sort = (searchParams.get('sort') || 'last_email').toLowerCase();
+    const dir = (searchParams.get('dir') || 'desc').toLowerCase();
     const search = searchParams.get('search') || '';
     const countryCode = searchParams.get('country_code') || ''; // Use only country_code
     const emailStatuses = searchParams.getAll('emailStatus') || [];
@@ -190,10 +192,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid maxEmailsSent' }, { status: 400 });
     }
 
+    if (!['last_email', 'updated_at'].includes(sort)) {
+      return NextResponse.json({ error: 'Invalid sort' }, { status: 400 });
+    }
+
+    if (!['asc', 'desc'].includes(dir)) {
+      return NextResponse.json({ error: 'Invalid dir' }, { status: 400 });
+    }
+
     console.log('Request params:', {
       ids,
       page,
       limit,
+      sort,
+      dir,
       search,
       countryCode,
       emailStatuses,
@@ -224,21 +236,28 @@ export async function GET(request: NextRequest) {
       query = supabase
         .from('leads_with_email_count')
         .select('*', { count: 'exact' })
-        .in('id', ids)
-        .order('last_event_timestamp', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .in('id', ids);
     } else {
       // Build main query with filters and pagination
       query = applyLeadFilters(
         supabase.from('leads_with_email_count').select('*', { count: 'exact' }),
         filters
-      )
-        .order('last_event_timestamp', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+      );
 
       // Apply pagination
       const offset = (page - 1) * limit;
       query = query.range(offset, offset + limit - 1);
+    }
+
+    // Apply sort consistently (server-side) so pagination matches the UI ordering
+    if (sort === 'updated_at') {
+      query = query
+        .order('updated_at', { ascending: dir === 'asc', nullsFirst: false })
+        .order('created_at', { ascending: false });
+    } else {
+      query = query
+        .order('last_event_timestamp', { ascending: dir === 'asc', nullsFirst: false })
+        .order('created_at', { ascending: false });
     }
 
     const { data: leads, error: queryError, count: totalCount } = await query;

@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { Lead, ResponseStatus } from "@/types/crm";
+import { BUSINESS_TYPE_KEYWORDS } from "@/lib/crm/enrichmentTaxonomy";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -31,6 +32,8 @@ const leadSchema = z.object({
   instagram: z.string().optional(),
   facebook: z.string().optional(),
   business_type: z.string().optional(),
+  classes_per_week_estimate: z.number().int().min(0).nullable().optional(),
+  instructors_count_estimate: z.number().int().min(0).nullable().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   country_code: z.string().max(2, "Use 2-letter code").optional(),
@@ -53,6 +56,16 @@ const RESPONSE_STATUS_OPTIONS: Array<{
   { value: "qualified", label: "Qualified", color: "text-purple-600" },
   { value: "converted", label: "Converted", color: "text-green-700" },
 ];
+
+function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
+  return (
+    <div className="space-y-0.5">
+      <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</Label>
+      {children}
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
+    </div>
+  );
+}
 
 interface EditLeadDialogProps {
   lead: Lead | null;
@@ -91,6 +104,8 @@ export default function EditLeadDialog({
         instagram: lead.instagram ?? "",
         facebook: lead.facebook ?? "",
         business_type: lead.business_type ?? "",
+        classes_per_week_estimate: lead.classes_per_week_estimate ?? null,
+        instructors_count_estimate: lead.instructors_count_estimate ?? null,
       });
       setErrors({});
     }
@@ -105,6 +120,11 @@ export default function EditLeadDialog({
         return next;
       });
     }
+  };
+
+  const handleNumberChange = (field: string, value: string) => {
+    const num = value === "" ? null : parseInt(value, 10);
+    setFormData((prev) => ({ ...prev, [field]: isNaN(num as number) ? null : num }));
   };
 
   const handleSave = async () => {
@@ -150,14 +170,6 @@ export default function EditLeadDialog({
   };
 
   if (!lead) return null;
-
-  const Field = ({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) => (
-    <div className="space-y-0.5">
-      <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</Label>
-      {children}
-      {error && <p className="text-[10px] text-red-500">{error}</p>}
-    </div>
-  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -206,14 +218,44 @@ export default function EditLeadDialog({
           </Field>
 
           <Field label="Business Type">
-            <Input
+            <Select
               value={formData.business_type || ""}
-              onChange={(e) => handleInputChange("business_type", e.target.value)}
+              onValueChange={(value) => handleInputChange("business_type", value)}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {BUSINESS_TYPE_KEYWORDS.map((type) => (
+                  <SelectItem key={type} value={type} className="text-xs">
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {/* Row 3 */}
+          <Field label="Classes/Week">
+            <Input
+              type="number"
+              min={0}
+              value={formData.classes_per_week_estimate ?? ""}
+              onChange={(e) => handleNumberChange("classes_per_week_estimate", e.target.value)}
               className="h-7 text-xs"
             />
           </Field>
 
-          {/* Row 3 */}
+          <Field label="Instructors">
+            <Input
+              type="number"
+              min={0}
+              value={formData.instructors_count_estimate ?? ""}
+              onChange={(e) => handleNumberChange("instructors_count_estimate", e.target.value)}
+              className="h-7 text-xs"
+            />
+          </Field>
+
           <Field label="Website" error={errors.website}>
             <Input
               value={formData.website || ""}
@@ -223,6 +265,7 @@ export default function EditLeadDialog({
             />
           </Field>
 
+          {/* Row 4 */}
           <Field label="Instagram">
             <Input
               value={formData.instagram || ""}

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { fromEmail, replyTo, leadIds, subject, body: emailBody, templateId } = body;
+    const { fromEmail, replyTo, leadIds, subject, body: emailBody, templateId, html: emailHtml } = body;
 
     // Validate inputs
     if (!fromEmail || !leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
     // Get template if templateId is provided
     const template = templateId ? getTemplateById(templateId) : null;
 
-    // Validate subject and body - body only required if not using template
-    if (!subject || (!template && !emailBody)) {
-      return NextResponse.json({ error: 'Missing required fields: subject' + (!template ? ', body' : '') }, { status: 400 });
+    // Validate subject and body/html - body or html only required if not using template
+    if (!subject || (!template && !emailBody && !emailHtml)) {
+      return NextResponse.json({ error: 'Missing required fields: subject' + (!template ? ', body or html' : '') }, { status: 400 });
     }
 
     // Fetch lead details from database
@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
           firstName: lead.first_name || undefined,
           studioName: lead.studio_name || undefined,
         });
+      } else if (emailHtml) {
+        // Use HTML for emails with links
+        const personalizedSubject = replaceVariables(subject, lead);
+        const personalizedHtml = replaceVariables(emailHtml, lead);
+        emailData.subject = personalizedSubject;
+        emailData.html = personalizedHtml;
       } else {
         // Use plain text for custom emails
         const personalizedSubject = replaceVariables(subject, lead);

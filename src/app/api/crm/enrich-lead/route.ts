@@ -23,7 +23,9 @@ const singleRequestSchema = z.object({
 const bulkRequestSchema = z.object({
   leadIds: z.array(z.string().uuid('Invalid lead ID')).min(1).max(10),
   leadId: z.undefined(),
-  autoApply: z.boolean().default(true),
+  autoApply: z.boolean().default(false), // Default to preview mode
+  previewMode: z.boolean().default(true), // Returns both provider results for review
+  searchFields: searchFieldsSchema, // Which fields to use for search (shared across all leads)
 });
 
 const requestSchema = z.union([singleRequestSchema, bulkRequestSchema]);
@@ -730,9 +732,54 @@ export async function POST(request: NextRequest) {
 
     // Handle bulk enrichment
     if ('leadIds' in data && data.leadIds) {
-      const { leadIds, autoApply = true } = data;
+      const { leadIds, autoApply = false, previewMode = true } = data;
 
-      // Process all leads in parallel
+      // Preview mode: return both provider results for user review (no auto-apply)
+      if (previewMode) {
+        // Fetch leads first so we can include them in the response
+        const { data: leads, error: leadsError } = await supabase
+          .from('leads_with_email_count')
+          .select('*')
+          .in('id', leadIds);
+
+        if (leadsError) {
+          return NextResponse.json({
+            error: 'Failed to fetch leads',
+            details: leadsError.message
+          }, { status: 500 });
+        }
+
+        const leadsMap = new Map(leads?.map(l => [l.id, l]) || []);
+
+        // Process all leads in parallel with both providers, passing searchFields
+        const results = await Promise.all(
+          leadIds.map(leadId => enrichSingleLeadWithProviders(supabase, leadId, data.searchFields))
+        );
+
+        const items = results.map(r => ({
+          leadId: r.leadId,
+          lead: leadsMap.get(r.leadId),
+          success: r.success,
+          providers: r.providers,
+          error: r.error,
+        }));
+
+        const successCount = items.filter(r => r.success).length;
+
+        return NextResponse.json({
+          success: true,
+          bulk: true,
+          previewMode: true,
+          items,
+          summary: {
+            total: leadIds.length,
+            successful: successCount,
+            failed: leadIds.length - successCount,
+          }
+        });
+      }
+
+      // Legacy auto-apply mode
       const results = await Promise.all(
         leadIds.map(leadId => enrichSingleLead(supabase, leadId, autoApply))
       );
@@ -752,6 +799,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         bulk: true,
+        previewMode: false,
         results: bulkResults,
         summary: {
           total: leadIds.length,

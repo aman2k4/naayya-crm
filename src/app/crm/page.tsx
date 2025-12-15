@@ -14,9 +14,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lead, ResponseStatus } from "@/types/crm";
+import { Lead } from "@/types/crm";
 import { type EmailStatus } from "@/lib/crm/emailStatusHelpers";
-import { CopyableCell } from "@/components/ui/copyable-cell";
 import { useToast } from "@/hooks/use-toast";
 import CSVImportDialog from "./components/CSVImportDialog";
 import EmailEventsModal from "./components/EmailEventsModal";
@@ -35,15 +34,15 @@ import {
   Eye,
   CheckCircle,
   XCircle,
-  Info,
   RefreshCw,
   Send,
-  Pencil,
   Sparkles,
   Loader2,
 } from "lucide-react";
 import EditLeadDialog from "./components/EditLeadDialog";
 import EnrichLeadModal from "./components/EnrichLeadModal";
+import BulkEnrichmentReviewModal from "./components/BulkEnrichmentReviewModal";
+import { LeadsTable } from "./components/LeadsTable";
 import { ExportPdfButton } from "./components/ExportPdfButton";
 import { EnrichmentProvider, useEnrichment } from "./context/EnrichmentContext";
 
@@ -57,31 +56,6 @@ const EMAIL_STATUS_OPTIONS = [
   { value: "complained", label: "Complained", icon: AlertTriangle },
   { value: "failed", label: "Failed", icon: MailX },
   { value: "unsubscribed", label: "Unsubscribed", icon: MailX },
-];
-
-const RESPONSE_STATUS_OPTIONS: Array<{
-  value: ResponseStatus;
-  label: string;
-  color: string;
-}> = [
-  { value: "interested", label: "✅ Interested", color: "text-green-600" },
-  {
-    value: "not_interested",
-    label: "❌ Not Interested",
-    color: "text-red-600",
-  },
-  {
-    value: "interested_later",
-    label: "⏰ Interested Later",
-    color: "text-yellow-600",
-  },
-  {
-    value: "follow_up_needed",
-    label: "📞 Follow Up Needed",
-    color: "text-blue-600",
-  },
-  { value: "qualified", label: "🎯 Qualified", color: "text-purple-600" },
-  { value: "converted", label: "🚀 Converted", color: "text-green-700" },
 ];
 
 interface PaginationData {
@@ -153,8 +127,11 @@ function CRMDashboardContent() {
     enrichingLead,
     openEnrichModal,
     closeEnrichModal,
+    bulkReviewOpen,
+    bulkReviewLeads,
+    openBulkReviewModal,
+    closeBulkReviewModal,
     isBulkEnriching,
-    handleBulkEnrich,
     updateEnrichingLead,
   } = useEnrichment();
   const router = useRouter();
@@ -400,70 +377,6 @@ function CRMDashboardContent() {
     setEditingLead((prev) =>
       prev && prev.id === updatedLead.id ? updatedLead : prev
     );
-  };
-
-  const getLeadLastEventTimestamp = (
-    lead: Lead,
-    statusMap: Record<string, EmailStatus> = emailStatus
-  ) => {
-    const candidate = lead.last_event_timestamp || statusMap[lead.email]?.lastEventTimestamp;
-    if (!candidate) return null;
-    const parsed = Date.parse(candidate);
-    return Number.isNaN(parsed) ? null : parsed;
-  };
-
-  const getLeadUpdatedAtTimestamp = (lead: Lead) => {
-    const parsed = Date.parse(lead.updated_at);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  };
-
-  const sortLeadListByLastEvent = (
-    leadList: Lead[],
-    direction: "asc" | "desc",
-    statusMap?: Record<string, EmailStatus>
-  ) => {
-    const activeStatusMap = statusMap ?? emailStatus;
-    return [...leadList].sort((a, b) => {
-      const aTimestamp = getLeadLastEventTimestamp(a, activeStatusMap);
-      const bTimestamp = getLeadLastEventTimestamp(b, activeStatusMap);
-
-      if (aTimestamp === null && bTimestamp === null) {
-        return 0;
-      }
-      if (aTimestamp === null) return 1;
-      if (bTimestamp === null) return -1;
-
-      const comparison =
-        direction === "asc" ? aTimestamp - bTimestamp : bTimestamp - aTimestamp;
-
-      if (comparison !== 0) return comparison;
-
-      // Secondary sort by created_at descending to keep stable ordering
-      return Date.parse(b.created_at) - Date.parse(a.created_at);
-    });
-  };
-
-  const sortLeadListByUpdatedAt = (leadList: Lead[], direction: "asc" | "desc") => {
-    return [...leadList].sort((a, b) => {
-      const aTimestamp = getLeadUpdatedAtTimestamp(a);
-      const bTimestamp = getLeadUpdatedAtTimestamp(b);
-      const comparison =
-        direction === "asc" ? aTimestamp - bTimestamp : bTimestamp - aTimestamp;
-      if (comparison !== 0) return comparison;
-      return Date.parse(b.created_at) - Date.parse(a.created_at);
-    });
-  };
-
-  const applySort = (
-    leadList: Lead[],
-    field: "updated_at" | "last_email",
-    direction: "asc" | "desc",
-    statusMap?: Record<string, EmailStatus>
-  ) => {
-    if (field === "updated_at") {
-      return sortLeadListByUpdatedAt(leadList, direction);
-    }
-    return sortLeadListByLastEvent(leadList, direction, statusMap);
   };
 
   const refetchFirstPageWithCurrentFilters = (
@@ -1137,15 +1050,38 @@ function CRMDashboardContent() {
   };
 
   const onBulkEnrich = () => {
+    // Get the selected leads from both visible and allFilteredLeads
     const selectedIds = Array.from(selectedLeads);
-    handleBulkEnrich(selectedIds, (updatedLeadsMap) => {
-      setLeads((prev) =>
-        prev.map((lead) => updatedLeadsMap.get(lead.id) || lead)
-      );
-      // Clear selections
-      setSelectedLeads(new Set());
-      setIsAllFilteredSelected(false);
-    });
+    const leadsToEnrich = isAllFilteredSelected
+      ? allFilteredLeads.filter((l) => selectedIds.includes(l.id))
+      : leads.filter((l) => selectedIds.includes(l.id));
+
+    if (leadsToEnrich.length === 0) {
+      toast({
+        title: "No leads selected",
+        description: "Please select leads to enrich",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (leadsToEnrich.length > 10) {
+      toast({
+        title: "Too many leads selected",
+        description: "Please select 10 or fewer leads for bulk enrichment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open the bulk review modal
+    openBulkReviewModal(leadsToEnrich);
+  };
+
+  const handleBulkEnrichLeadsUpdated = (updatedLeadsMap: Map<string, Lead>) => {
+    setLeads((prev) =>
+      prev.map((lead) => updatedLeadsMap.get(lead.id) || lead)
+    );
   };
 
   useEffect(() => {
@@ -1502,246 +1438,21 @@ function CRMDashboardContent() {
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full table-fixed text-[11px]">
-                <thead className="sticky top-0 bg-muted/50 border-b border-border z-10">
-                  <tr className="text-muted-foreground text-left">
-                    <th className="px-1.5 py-1.5 text-left font-medium w-8 whitespace-nowrap">
-                      <Checkbox
-                        checked={isAllFilteredSelected || (selectedLeads.size === leads.length && leads.length > 0)}
-                        onCheckedChange={(checked) => {
-                          if (isAllFilteredSelected) {
-                            handleSelectAllFiltered();
-                          } else {
-                            handleSelectAllVisible(checked as boolean);
-                          }
-                        }}
-                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                      />
-                    </th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[130px] whitespace-nowrap">Studio</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[105px] whitespace-nowrap">Contact</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[165px] whitespace-nowrap">Email</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[95px] whitespace-nowrap">Phone</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[95px] whitespace-nowrap">Location</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[90px] whitespace-nowrap">Response</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[78px] whitespace-nowrap">Source</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[78px] whitespace-nowrap">Platform</th>
-                    <th className="px-1.5 py-1.5 text-center font-medium w-[56px] whitespace-nowrap" title="Classes per week estimate">Cls/Wk</th>
-                    <th className="px-1.5 py-1.5 text-center font-medium w-[56px] whitespace-nowrap" title="Instructor count estimate">Instr</th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[72px] whitespace-nowrap">Created</th>
-                    <th
-                      className="px-1.5 py-1.5 text-left font-medium cursor-pointer hover:bg-muted transition-colors w-[72px] whitespace-nowrap"
-                      onClick={() => toggleSort("updated_at")}
-                      title="Sort by updated time"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Updated</span>
-                        {sortField === "updated_at" && (
-                          <span className="text-muted-foreground">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th className="px-1.5 py-1.5 font-medium text-center w-[46px] whitespace-nowrap">Sent</th>
-                    <th
-                      className="px-1.5 py-1.5 text-left font-medium cursor-pointer hover:bg-muted transition-colors w-[110px] whitespace-nowrap"
-                      onClick={() => toggleSort("last_email")}
-                      title="Sort by last email event"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Last Email</span>
-                        {sortField === "last_email" && (
-                          <span className="text-muted-foreground">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th className="px-1.5 py-1.5 text-left font-medium w-[84px] whitespace-nowrap"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {(leads || []).map((lead) => {
-                    const isSelected = selectedLeads.has(lead.id);
-                    const responseOption = RESPONSE_STATUS_OPTIONS.find(
-                      (opt) => opt.value === lead.response_status
-                    );
-                    const responseLabel = (responseOption?.label || lead.response_status || "-")
-                      .replace(/^[^\p{L}\p{N}]+/u, "")
-                      .trim();
-                    return (
-                      <tr
-                        key={lead.id}
-                        className={`group hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5" : ""}`}
-                      >
-                        <td className="px-1.5 py-1.5">
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
-                            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                          />
-                        </td>
-                        {/* Studio */}
-                        <td className="px-1.5 py-1.5 font-medium whitespace-nowrap">
-                          <span className="truncate block max-w-[120px]" title={lead.studio_name}>
-                            {lead.studio_name || "-"}
-                          </span>
-                        </td>
-
-                        {/* Contact */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <span className="truncate block max-w-[95px]" title={`${lead.first_name} ${lead.last_name}`}>
-                            {`${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "-"}
-                          </span>
-                        </td>
-
-                        {/* Email */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <CopyableCell value={lead.email} className="max-w-[150px]" />
-                        </td>
-
-                        {/* Phone */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <span className="truncate block max-w-[100px]" title={lead.phone_number || ""}>
-                            {lead.phone_number || "-"}
-                          </span>
-                        </td>
-
-                        {/* Location */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <span className="truncate block max-w-[100px]" title={[lead.city, lead.country_code].filter(Boolean).join(", ")}>
-                            {[lead.city, lead.country_code].filter(Boolean).join(", ") || "-"}
-                          </span>
-                        </td>
-
-                        {/* Response Status */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <span className={responseOption?.color || ""} title={responseOption?.label || lead.response_status}>
-                            {responseLabel || "-"}
-                          </span>
-                        </td>
-
-                        {/* Source */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <span className="truncate block max-w-[80px]" title={lead.lead_source}>
-                            {lead.lead_source || "-"}
-                          </span>
-                        </td>
-
-                        {/* Platform */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <span className="truncate block max-w-[80px]" title={lead.current_platform}>
-                            {lead.current_platform || "-"}
-                          </span>
-                        </td>
-
-                        {/* Classes / Week */}
-                        <td className="px-1.5 py-1.5 text-center whitespace-nowrap text-muted-foreground">
-                          <span className="font-mono">
-                            {lead.classes_per_week_estimate ?? "-"}
-                          </span>
-                        </td>
-
-                        {/* Instructors */}
-                        <td className="px-1.5 py-1.5 text-center whitespace-nowrap text-muted-foreground">
-                          <span className="font-mono">
-                            {lead.instructors_count_estimate ?? "-"}
-                          </span>
-                        </td>
-
-                        {/* Created Date */}
-                        <td className="px-1.5 py-1.5 text-muted-foreground whitespace-nowrap">
-                          <span className="font-mono">
-                            {new Date(lead.created_at).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "2-digit",
-                            })}
-                          </span>
-                        </td>
-
-                        {/* Updated Date */}
-                        <td className="px-1.5 py-1.5 text-muted-foreground whitespace-nowrap">
-                          <span className="font-mono">
-                            {new Date(lead.updated_at).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "2-digit",
-                            })}
-                          </span>
-                        </td>
-
-                        {/* Emails Sent Count */}
-                        <td className="px-1.5 py-1.5 text-center whitespace-nowrap">
-                          <span className="inline-flex items-center justify-center bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0 rounded-full">
-                            {emailStatus[lead.email]?.emailsSentCount || 0}
-                          </span>
-                        </td>
-
-                        {/* Last Email */}
-                        <td className="px-1.5 py-1.5 text-muted-foreground">
-                          {emailStatus[lead.email]?.lastEventType && emailStatus[lead.email]?.lastEventTimestamp ? (
-                            <div className="flex flex-col" title={`${new Date(emailStatus[lead.email].lastEventTimestamp!).toLocaleString("en-US", {
-                              timeZone: "Europe/Berlin",
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })} CET`}>
-                              <span className="text-[10px] font-mono bg-muted px-1 py-0.5 rounded w-fit">
-                                {emailStatus[lead.email]?.lastEventType?.replace("email.", "")?.substring(0, 4) || ""}
-                              </span>
-                              <span className="text-[10px] mt-0.5">
-                                {new Date(emailStatus[lead.email].lastEventTimestamp!).toLocaleString("en-US", {
-                                  timeZone: "Europe/Berlin",
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-                          ) : (
-                            <span>-</span>
-                          )}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-1.5 py-1.5 whitespace-nowrap">
-                          <div className="flex items-center gap-0.5">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEnrichModal(lead)}
-                              className="h-6 w-6 p-0"
-                              title="Enrich lead data"
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEditDialog(lead)}
-                              className="h-6 w-6 p-0"
-                              title="Edit lead"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleViewEmailEvents(lead.email)}
-                              className="h-6 w-6 p-0"
-                              title="View details"
-                            >
-                              <Info className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <LeadsTable
+              leads={leads}
+              emailStatus={emailStatus}
+              selectedLeads={selectedLeads}
+              isAllFilteredSelected={isAllFilteredSelected}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSelectLead={handleSelectLead}
+              onSelectAllVisible={handleSelectAllVisible}
+              onSelectAllFiltered={handleSelectAllFiltered}
+              onToggleSort={toggleSort}
+              onEditLead={openEditDialog}
+              onEnrichLead={openEnrichModal}
+              onViewEmailEvents={handleViewEmailEvents}
+            />
           </div>
 
           {/* Pagination */}
@@ -1874,6 +1585,14 @@ function CRMDashboardContent() {
         isOpen={enrichModalOpen}
         onOpenChange={(open) => !open && closeEnrichModal()}
         onLeadUpdated={handleLeadUpdated}
+      />
+
+      {/* Bulk Enrichment Review Modal */}
+      <BulkEnrichmentReviewModal
+        selectedLeads={bulkReviewLeads}
+        isOpen={bulkReviewOpen}
+        onOpenChange={(open) => !open && closeBulkReviewModal()}
+        onLeadsUpdated={handleBulkEnrichLeadsUpdated}
       />
     </div>
   );

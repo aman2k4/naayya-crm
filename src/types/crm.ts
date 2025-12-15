@@ -124,6 +124,27 @@ export interface BulkEnrichmentResult {
   error?: string;
 }
 
+// Bulk enrichment review types (preview mode - no auto-apply)
+export interface BulkEnrichmentPreviewItem {
+  leadId: string;
+  lead: Lead;
+  success: boolean;
+  providers: {
+    gemini: LeadEnrichmentProviderResult;
+    perplexity: LeadEnrichmentProviderResult;
+  };
+  error?: string;
+}
+
+export interface BulkEnrichmentPreviewResult {
+  items: BulkEnrichmentPreviewItem[];
+  summary: {
+    total: number;
+    successful: number;
+    failed: number;
+  };
+}
+
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed';
 
 export interface Broadcast {

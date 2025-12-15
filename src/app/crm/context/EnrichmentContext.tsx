@@ -5,13 +5,19 @@ import { Lead, BulkEnrichmentResult } from "@/types/crm";
 import { useToast } from "@/hooks/use-toast";
 
 interface EnrichmentContextValue {
-  // Modal state
+  // Single lead modal state
   enrichModalOpen: boolean;
   enrichingLead: Lead | null;
   openEnrichModal: (lead: Lead) => void;
   closeEnrichModal: () => void;
 
-  // Bulk enrichment state
+  // Bulk enrichment review modal state
+  bulkReviewOpen: boolean;
+  bulkReviewLeads: Lead[];
+  openBulkReviewModal: (leads: Lead[]) => void;
+  closeBulkReviewModal: () => void;
+
+  // Legacy bulk enrichment (auto-apply mode - kept for backwards compatibility)
   isBulkEnriching: boolean;
   handleBulkEnrich: (
     selectedIds: string[],
@@ -40,6 +46,8 @@ export function EnrichmentProvider({ children }: EnrichmentProviderProps) {
   const [enrichModalOpen, setEnrichModalOpen] = useState(false);
   const [enrichingLead, setEnrichingLead] = useState<Lead | null>(null);
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
+  const [bulkReviewOpen, setBulkReviewOpen] = useState(false);
+  const [bulkReviewLeads, setBulkReviewLeads] = useState<Lead[]>([]);
   const { toast } = useToast();
 
   const openEnrichModal = useCallback((lead: Lead) => {
@@ -50,6 +58,16 @@ export function EnrichmentProvider({ children }: EnrichmentProviderProps) {
   const closeEnrichModal = useCallback(() => {
     setEnrichModalOpen(false);
     setEnrichingLead(null);
+  }, []);
+
+  const openBulkReviewModal = useCallback((leads: Lead[]) => {
+    setBulkReviewLeads(leads);
+    setBulkReviewOpen(true);
+  }, []);
+
+  const closeBulkReviewModal = useCallback(() => {
+    setBulkReviewOpen(false);
+    setBulkReviewLeads([]);
   }, []);
 
   const updateEnrichingLead = useCallback((updatedLead: Lead) => {
@@ -131,6 +149,10 @@ export function EnrichmentProvider({ children }: EnrichmentProviderProps) {
     enrichingLead,
     openEnrichModal,
     closeEnrichModal,
+    bulkReviewOpen,
+    bulkReviewLeads,
+    openBulkReviewModal,
+    closeBulkReviewModal,
     isBulkEnriching,
     handleBulkEnrich,
     updateEnrichingLead,

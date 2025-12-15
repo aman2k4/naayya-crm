@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CopyableCell } from "@/components/ui/copyable-cell";
 import { Lead, ResponseStatus } from "@/types/crm";
 import { type EmailStatus } from "@/lib/crm/emailStatusHelpers";
-import { Pencil, Sparkles, Info } from "lucide-react";
+import { Pencil, Sparkles, Info, Mail } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 const RESPONSE_STATUS_MAP: Record<ResponseStatus, { label: string; color: string }> = {
@@ -31,6 +31,7 @@ interface LeadsTableProps {
   onEditLead: (lead: Lead) => void;
   onEnrichLead: (lead: Lead) => void;
   onViewEmailEvents: (email: string) => void;
+  onGenerateEmail: (lead: Lead) => void;
 }
 
 export function LeadsTable({
@@ -47,6 +48,7 @@ export function LeadsTable({
   onEditLead,
   onEnrichLead,
   onViewEmailEvents,
+  onGenerateEmail,
 }: LeadsTableProps) {
   const allVisibleSelected = selectedLeads.size === leads.length && leads.length > 0;
 
@@ -130,6 +132,7 @@ export function LeadsTable({
             onEdit={() => onEditLead(lead)}
             onEnrich={() => onEnrichLead(lead)}
             onViewEmailEvents={() => onViewEmailEvents(lead.email)}
+            onGenerateEmail={() => onGenerateEmail(lead)}
           />
         ))}
       </tbody>
@@ -145,6 +148,7 @@ interface LeadRowProps {
   onEdit: () => void;
   onEnrich: () => void;
   onViewEmailEvents: () => void;
+  onGenerateEmail: () => void;
 }
 
 function LeadRow({
@@ -155,6 +159,7 @@ function LeadRow({
   onEdit,
   onEnrich,
   onViewEmailEvents,
+  onGenerateEmail,
 }: LeadRowProps) {
   const status = RESPONSE_STATUS_MAP[lead.response_status];
   const contactName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "-";
@@ -332,6 +337,9 @@ function LeadRow({
       {/* Actions */}
       <td className="px-1.5 py-1 border-l border-border/30">
         <div className="flex items-center gap-0.5">
+          <Button size="sm" variant="ghost" onClick={onGenerateEmail} className="h-5 w-5 p-0" title="Generate Email">
+            <Mail className="w-3 h-3" />
+          </Button>
           <Button size="sm" variant="ghost" onClick={onEnrich} className="h-5 w-5 p-0" title="Enrich">
             <Sparkles className="w-3 h-3" />
           </Button>

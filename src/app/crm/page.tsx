@@ -42,6 +42,7 @@ import {
 import EditLeadDialog from "./components/EditLeadDialog";
 import EnrichLeadModal from "./components/EnrichLeadModal";
 import BulkEnrichmentReviewModal from "./components/BulkEnrichmentReviewModal";
+import { ColdEmailPreviewModal } from "./components/ColdEmailPreviewModal";
 import { LeadsTable } from "./components/LeadsTable";
 import { ExportPdfButton } from "./components/ExportPdfButton";
 import { EnrichmentProvider, useEnrichment } from "./context/EnrichmentContext";
@@ -119,6 +120,7 @@ function CRMDashboardContent() {
     useState<string>("");
   const [isAudienceDialogOpen, setIsAudienceDialogOpen] = useState(false);
   const [everEmailedOnly, setEverEmailedOnly] = useState(false);
+  const [coldEmailLead, setColdEmailLead] = useState<Lead | null>(null);
   const { toast } = useToast();
 
   // Enrichment context
@@ -431,6 +433,10 @@ function CRMDashboardContent() {
   const handleViewEmailEvents = (email: string) => {
     setSelectedEmailForEvents(email);
     setEmailEventsModalOpen(true);
+  };
+
+  const handleGenerateEmail = (lead: Lead) => {
+    setColdEmailLead(lead);
   };
 
   // Fetch all unique filter values for dropdowns
@@ -1456,6 +1462,7 @@ function CRMDashboardContent() {
               onEditLead={openEditDialog}
               onEnrichLead={openEnrichModal}
               onViewEmailEvents={handleViewEmailEvents}
+              onGenerateEmail={handleGenerateEmail}
             />
           </div>
 
@@ -1597,6 +1604,12 @@ function CRMDashboardContent() {
         isOpen={bulkReviewOpen}
         onOpenChange={(open) => !open && closeBulkReviewModal()}
         onLeadsUpdated={handleBulkEnrichLeadsUpdated}
+      />
+
+      {/* Cold Email Preview Modal */}
+      <ColdEmailPreviewModal
+        lead={coldEmailLead}
+        onClose={() => setColdEmailLead(null)}
       />
     </div>
   );

@@ -579,16 +579,18 @@ function CRMDashboardContent() {
   };
 
   const handlePageChange = (page: number) => {
-    // Update URL with new page
+    // Update local state first
+    setCurrentPage(page);
+
+    // Update URL (shallow, won't trigger re-render)
     updateURL({ page });
 
     // Convert "__all__" to empty string for API
     const apiCountry = selectedCountry === "__all__" ? "" : selectedCountry;
     const apiPlatform = selectedPlatform === "__all__" ? "" : selectedPlatform;
     const apiSource = selectedSource === "__all__" ? "" : selectedSource;
+    const apiEmailStatus = selectedEmailStatus === "__all__" ? "" : selectedEmailStatus;
 
-    const apiEmailStatus =
-      selectedEmailStatus === "__all__" ? "" : selectedEmailStatus;
     fetchLeads(
       page,
       searchTerm,
@@ -598,9 +600,10 @@ function CRMDashboardContent() {
       apiPlatform,
       apiSource,
       lastEmailFrom,
-      lastEmailTo
+      lastEmailTo,
+      minEmailsSent,
+      maxEmailsSent
     );
-    // Note: Page changes don't need to refetch counts since they don't affect totals
   };
 
   const handleCountryChange = async (countryCode: string) => {
@@ -1113,7 +1116,8 @@ function CRMDashboardContent() {
       urlFilters.minEmailsSent,
       urlFilters.maxEmailsSent
     );
-  }, [initializeFiltersFromURL]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount - URL changes handled by individual handlers
 
   if (loading) {
     return <div>Loading...</div>;

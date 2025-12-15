@@ -139,17 +139,29 @@ export default function EnrichLeadModal({
         return raw;
       };
 
+      const payload = { id: lead.id, [field]: coerceUpdateValue(field, value) };
+      console.log("[EnrichLeadModal] Applying field:", field, "with payload:", payload);
+
       const response = await fetch("/api/crm/leads-with-count", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: lead.id, [field]: coerceUpdateValue(field, value) }),
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Failed to update field");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[EnrichLeadModal] PATCH failed:", response.status, errorData);
+        throw new Error("Failed to update field");
+      }
 
       const result = await response.json();
+      console.log("[EnrichLeadModal] PATCH success, result:", result);
       onLeadUpdated(result.data);
       setAppliedFields((prev) => new Set([...prev, field]));
+      toast({
+        title: "Applied",
+        description: `${FIELD_LABELS[field] || field} updated successfully`,
+      });
     } catch (error) {
       console.error("Error applying field:", error);
       toast({

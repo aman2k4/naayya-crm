@@ -445,21 +445,31 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update the lead
-    const { data, error } = await supabase
+    const { error: updateError } = await supabase
       .from('leads')
       .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+      .eq('id', id);
 
-    if (error) {
-      console.error('Error updating lead:', error);
+    if (updateError) {
+      console.error('Error updating lead:', updateError);
       return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      data: data 
+    // Fetch the updated lead from the view to get all computed fields
+    const { data, error: fetchError } = await supabase
+      .from('leads_with_email_count')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching updated lead:', fetchError);
+      return NextResponse.json({ error: 'Failed to fetch updated lead' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: data
     });
 
   } catch (error: any) {

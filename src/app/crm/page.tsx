@@ -14,7 +14,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lead, ResponseStatus, BulkEnrichmentResult } from "@/types/crm";
+import { Lead, ResponseStatus } from "@/types/crm";
 import { type EmailStatus } from "@/lib/crm/emailStatusHelpers";
 import { CopyableCell } from "@/components/ui/copyable-cell";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,7 @@ import {
 import EditLeadDialog from "./components/EditLeadDialog";
 import EnrichLeadModal from "./components/EnrichLeadModal";
 import { ExportPdfButton } from "./components/ExportPdfButton";
+import { EnrichmentProvider, useEnrichment } from "./context/EnrichmentContext";
 
 const EMAIL_STATUS_OPTIONS = [
   { value: "not_sent", label: "Not Sent", icon: Mail },
@@ -91,6 +92,14 @@ interface PaginationData {
 }
 
 export default function CRMDashboard() {
+  return (
+    <EnrichmentProvider>
+      <CRMDashboardContent />
+    </EnrichmentProvider>
+  );
+}
+
+function CRMDashboardContent() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,10 +145,18 @@ export default function CRMDashboard() {
     useState<string>("");
   const [isAudienceDialogOpen, setIsAudienceDialogOpen] = useState(false);
   const [everEmailedOnly, setEverEmailedOnly] = useState(false);
-  const [enrichModalOpen, setEnrichModalOpen] = useState(false);
-  const [enrichingLead, setEnrichingLead] = useState<Lead | null>(null);
-  const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const { toast } = useToast();
+
+  // Enrichment context
+  const {
+    enrichModalOpen,
+    enrichingLead,
+    openEnrichModal,
+    closeEnrichModal,
+    isBulkEnriching,
+    handleBulkEnrich,
+    updateEnrichingLead,
+  } = useEnrichment();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -374,14 +391,14 @@ export default function CRMDashboard() {
     setEditDialogOpen(true);
   };
 
-  const openEnrichModal = (lead: Lead) => {
-    setEnrichingLead(lead);
-    setEnrichModalOpen(true);
-  };
-
   const handleLeadUpdated = (updatedLead: Lead) => {
     setLeads((prev) =>
       prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
+    );
+    // Also update enrichingLead (via context) and editingLead if they reference the same lead
+    updateEnrichingLead(updatedLead);
+    setEditingLead((prev) =>
+      prev && prev.id === updatedLead.id ? updatedLead : prev
     );
   };
 
@@ -1119,79 +1136,16 @@ export default function CRMDashboard() {
     }
   };
 
-  const handleBulkEnrich = async () => {
+  const onBulkEnrich = () => {
     const selectedIds = Array.from(selectedLeads);
-
-    if (selectedIds.length === 0) {
-      toast({
-        title: "No leads selected",
-        description: "Please select leads to enrich",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (selectedIds.length > 10) {
-      toast({
-        title: "Too many leads selected",
-        description: "Please select 10 or fewer leads for bulk enrichment",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsBulkEnriching(true);
-
-    try {
-      const response = await fetch("/api/crm/enrich-lead", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadIds: selectedIds }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || "Failed to enrich leads");
-      }
-
-      const result = await response.json();
-
-      if (result.success && result.results) {
-        // Update leads state with enriched data
-        const updatedLeadsMap = new Map<string, Lead>();
-        (result.results as BulkEnrichmentResult[]).forEach((r: BulkEnrichmentResult) => {
-          if (r.success && r.updatedLead) {
-            updatedLeadsMap.set(r.leadId, r.updatedLead);
-          }
-        });
-
-        if (updatedLeadsMap.size > 0) {
-          setLeads((prev) =>
-            prev.map((lead) => updatedLeadsMap.get(lead.id) || lead)
-          );
-        }
-
-        // Show results summary
-        const { summary } = result;
-        toast({
-          title: "Enrichment complete",
-          description: `${summary.updated} of ${summary.total} leads updated${summary.failed > 0 ? `, ${summary.failed} failed` : ""}`,
-        });
-
-        // Clear selections
-        setSelectedLeads(new Set());
-        setIsAllFilteredSelected(false);
-      }
-    } catch (error) {
-      console.error("Error in bulk enrichment:", error);
-      toast({
-        title: "Enrichment failed",
-        description: error instanceof Error ? error.message : "Failed to enrich leads",
-        variant: "destructive",
-      });
-    } finally {
-      setIsBulkEnriching(false);
-    }
+    handleBulkEnrich(selectedIds, (updatedLeadsMap) => {
+      setLeads((prev) =>
+        prev.map((lead) => updatedLeadsMap.get(lead.id) || lead)
+      );
+      // Clear selections
+      setSelectedLeads(new Set());
+      setIsAllFilteredSelected(false);
+    });
   };
 
   useEffect(() => {
@@ -1288,7 +1242,7 @@ export default function CRMDashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleBulkEnrich}
+                  onClick={onBulkEnrich}
                   disabled={isBulkEnriching}
                   className="h-9 text-xs"
                 >
@@ -1918,7 +1872,7 @@ export default function CRMDashboard() {
       <EnrichLeadModal
         lead={enrichingLead}
         isOpen={enrichModalOpen}
-        onOpenChange={setEnrichModalOpen}
+        onOpenChange={(open) => !open && closeEnrichModal()}
         onLeadUpdated={handleLeadUpdated}
       />
     </div>

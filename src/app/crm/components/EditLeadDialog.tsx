@@ -20,6 +20,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { Lead, ResponseStatus } from "@/types/crm";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+const leadSchema = z.object({
+  studio_name: z.string().min(1, "Studio name is required"),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  phone_number: z.string().optional(),
+  website: z.string().url("Invalid URL").optional().or(z.literal("")),
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  business_type: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country_code: z.string().max(2, "Use 2-letter code").optional(),
+  response_status: z.enum(["interested", "not_interested", "interested_later", "follow_up_needed", "qualified", "converted"]),
+  lead_source: z.string().optional(),
+  current_platform: z.string().optional(),
+  notes: z.string().optional(),
+  additional_info: z.string().optional(),
+});
 
 const RESPONSE_STATUS_OPTIONS: Array<{
   value: ResponseStatus;
@@ -28,8 +48,8 @@ const RESPONSE_STATUS_OPTIONS: Array<{
 }> = [
   { value: "interested", label: "Interested", color: "text-green-600" },
   { value: "not_interested", label: "Not Interested", color: "text-red-600" },
-  { value: "interested_later", label: "Interested Later", color: "text-yellow-600" },
-  { value: "follow_up_needed", label: "Follow Up Needed", color: "text-blue-600" },
+  { value: "interested_later", label: "Later", color: "text-yellow-600" },
+  { value: "follow_up_needed", label: "Follow Up", color: "text-blue-600" },
   { value: "qualified", label: "Qualified", color: "text-purple-600" },
   { value: "converted", label: "Converted", color: "text-green-700" },
 ];
@@ -48,73 +68,80 @@ export default function EditLeadDialog({
   onLeadUpdated,
 }: EditLeadDialogProps) {
   const [formData, setFormData] = useState<Partial<Lead>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     if (lead) {
       setFormData({
-        first_name: lead.first_name,
-        last_name: lead.last_name,
-        studio_name: lead.studio_name,
-        lead_source: lead.lead_source,
-        current_platform: lead.current_platform,
-        city: lead.city,
-        state: lead.state,
-        country_code: lead.country_code,
+        first_name: lead.first_name ?? "",
+        last_name: lead.last_name ?? "",
+        studio_name: lead.studio_name ?? "",
+        lead_source: lead.lead_source ?? "",
+        current_platform: lead.current_platform ?? "",
+        city: lead.city ?? "",
+        state: lead.state ?? "",
+        country_code: lead.country_code ?? "",
         response_status: lead.response_status,
-        notes: lead.notes,
-        phone_number: lead.phone_number,
-        additional_info: lead.additional_info,
-        website: lead.website,
-        instagram: lead.instagram,
-        facebook: lead.facebook,
-        business_type: lead.business_type,
+        notes: lead.notes ?? "",
+        phone_number: lead.phone_number ?? "",
+        additional_info: lead.additional_info ?? "",
+        website: lead.website ?? "",
+        instagram: lead.instagram ?? "",
+        facebook: lead.facebook ?? "",
+        business_type: lead.business_type ?? "",
       });
+      setErrors({});
     }
   }, [lead]);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const handleSave = async () => {
     if (!lead) return;
+
+    const result = leadSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        if (issue.path[0]) {
+          fieldErrors[issue.path[0] as string] = issue.message;
+        }
+      });
+      setErrors(fieldErrors);
+      return;
+    }
 
     setIsUpdating(true);
 
     try {
       const response = await fetch("/api/crm/leads-with-count", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: lead.id,
-          ...formData,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, ...formData }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to update lead");
-      }
+      if (!response.ok) throw new Error("Failed to update lead");
 
       const updatedLead = await response.json();
       onLeadUpdated(updatedLead.data);
       onOpenChange(false);
-
-      toast({
-        title: "Success",
-        description: "Lead updated successfully",
-      });
+      toast({ title: "Success", description: "Lead updated" });
     } catch (error) {
       console.error("Error updating lead:", error);
       toast({
         title: "Error",
-        description: "Failed to update lead. Please try again.",
+        description: "Failed to update lead",
         variant: "destructive",
       });
     } finally {
@@ -124,249 +151,193 @@ export default function EditLeadDialog({
 
   if (!lead) return null;
 
+  const Field = ({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) => (
+    <div className="space-y-0.5">
+      <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</Label>
+      {children}
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Edit Lead</DialogTitle>
+      <DialogContent className="max-w-2xl p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-sm font-medium">Edit Lead</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          {/* Studio Name */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="studio_name" className="text-right text-sm">
-              Studio
-            </Label>
+        <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+          {/* Column 1 */}
+          <Field label="Studio" error={errors.studio_name}>
             <Input
-              id="studio_name"
               value={formData.studio_name || ""}
               onChange={(e) => handleInputChange("studio_name", e.target.value)}
-              className="col-span-3"
-              placeholder="Studio name"
+              className="h-7 text-xs"
             />
-          </div>
+          </Field>
 
-          {/* Contact Name */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="first_name" className="text-right text-sm">
-              Name
-            </Label>
-            <div className="col-span-3 flex gap-2">
-              <Input
-                id="first_name"
-                value={formData.first_name || ""}
-                onChange={(e) => handleInputChange("first_name", e.target.value)}
-                placeholder="First name"
-              />
-              <Input
-                id="last_name"
-                value={formData.last_name || ""}
-                onChange={(e) => handleInputChange("last_name", e.target.value)}
-                placeholder="Last name"
-              />
-            </div>
-          </div>
-
-          {/* Email (read-only) */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-sm">Email</Label>
+          <Field label="First Name">
             <Input
-              value={lead.email}
-              disabled
-              className="col-span-3 bg-muted"
+              value={formData.first_name || ""}
+              onChange={(e) => handleInputChange("first_name", e.target.value)}
+              className="h-7 text-xs"
             />
-          </div>
+          </Field>
 
-          {/* Phone */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="phone_number" className="text-right text-sm">
-              Phone
-            </Label>
+          <Field label="Last Name">
             <Input
-              id="phone_number"
+              value={formData.last_name || ""}
+              onChange={(e) => handleInputChange("last_name", e.target.value)}
+              className="h-7 text-xs"
+            />
+          </Field>
+
+          {/* Row 2 */}
+          <Field label="Email">
+            <Input value={lead.email} disabled className="h-7 text-xs bg-muted" />
+          </Field>
+
+          <Field label="Phone">
+            <Input
               value={formData.phone_number || ""}
               onChange={(e) => handleInputChange("phone_number", e.target.value)}
-              className="col-span-3"
-              placeholder="Phone number"
+              className="h-7 text-xs"
             />
-          </div>
+          </Field>
 
-          {/* Website */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="website" className="text-right text-sm">
-              Website
-            </Label>
+          <Field label="Business Type">
             <Input
-              id="website"
-              value={(formData as any).website || ""}
-              onChange={(e) => handleInputChange("website", e.target.value)}
-              className="col-span-3"
-              placeholder="https://example.com"
-            />
-          </div>
-
-          {/* Social */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="instagram" className="text-right text-sm">
-              IG
-            </Label>
-            <Input
-              id="instagram"
-              value={(formData as any).instagram || ""}
-              onChange={(e) => handleInputChange("instagram", e.target.value)}
-              className="col-span-3"
-              placeholder="https://instagram.com/..."
-            />
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="facebook" className="text-right text-sm">
-              FB
-            </Label>
-            <Input
-              id="facebook"
-              value={(formData as any).facebook || ""}
-              onChange={(e) => handleInputChange("facebook", e.target.value)}
-              className="col-span-3"
-              placeholder="https://facebook.com/..."
-            />
-          </div>
-
-          {/* Business Type */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="business_type" className="text-right text-sm">
-              Type
-            </Label>
-            <Input
-              id="business_type"
-              value={(formData as any).business_type || ""}
+              value={formData.business_type || ""}
               onChange={(e) => handleInputChange("business_type", e.target.value)}
-              className="col-span-3"
-              placeholder="e.g., yoga studio"
+              className="h-7 text-xs"
             />
-          </div>
+          </Field>
 
-          {/* Location */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="city" className="text-right text-sm">
-              Location
-            </Label>
-            <div className="col-span-3 flex gap-2">
-              <Input
-                id="city"
-                value={formData.city || ""}
-                onChange={(e) => handleInputChange("city", e.target.value)}
-                placeholder="City"
-                className="flex-1"
-              />
-              <Input
-                id="state"
-                value={formData.state || ""}
-                onChange={(e) => handleInputChange("state", e.target.value)}
-                placeholder="State"
-                className="w-24"
-              />
-              <Input
-                id="country_code"
-                value={formData.country_code || ""}
-                onChange={(e) => handleInputChange("country_code", e.target.value)}
-                placeholder="CC"
-                className="w-16"
-              />
-            </div>
-          </div>
+          {/* Row 3 */}
+          <Field label="Website" error={errors.website}>
+            <Input
+              value={formData.website || ""}
+              onChange={(e) => handleInputChange("website", e.target.value)}
+              className="h-7 text-xs"
+              placeholder="https://..."
+            />
+          </Field>
 
-          {/* Response Status */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="response_status" className="text-right text-sm">
-              Status
-            </Label>
+          <Field label="Instagram">
+            <Input
+              value={formData.instagram || ""}
+              onChange={(e) => handleInputChange("instagram", e.target.value)}
+              className="h-7 text-xs"
+            />
+          </Field>
+
+          <Field label="Facebook">
+            <Input
+              value={formData.facebook || ""}
+              onChange={(e) => handleInputChange("facebook", e.target.value)}
+              className="h-7 text-xs"
+            />
+          </Field>
+
+          {/* Row 4 */}
+          <Field label="City">
+            <Input
+              value={formData.city || ""}
+              onChange={(e) => handleInputChange("city", e.target.value)}
+              className="h-7 text-xs"
+            />
+          </Field>
+
+          <Field label="State">
+            <Input
+              value={formData.state || ""}
+              onChange={(e) => handleInputChange("state", e.target.value)}
+              className="h-7 text-xs"
+            />
+          </Field>
+
+          <Field label="Country" error={errors.country_code}>
+            <Input
+              value={formData.country_code || ""}
+              onChange={(e) => handleInputChange("country_code", e.target.value.toUpperCase())}
+              className="h-7 text-xs"
+              maxLength={2}
+              placeholder="US"
+            />
+          </Field>
+
+          {/* Row 5 */}
+          <Field label="Status">
             <Select
               value={formData.response_status || "interested"}
               onValueChange={(value) => handleInputChange("response_status", value)}
             >
-              <SelectTrigger className="col-span-3">
+              <SelectTrigger className="h-7 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {RESPONSE_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <span className={option.color}>{option.label}</span>
+                {RESPONSE_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    <span className={opt.color}>{opt.label}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
 
-          {/* Source */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="lead_source" className="text-right text-sm">
-              Source
-            </Label>
+          <Field label="Source">
             <Input
-              id="lead_source"
               value={formData.lead_source || ""}
               onChange={(e) => handleInputChange("lead_source", e.target.value)}
-              className="col-span-3"
-              placeholder="Lead source"
+              className="h-7 text-xs"
             />
-          </div>
+          </Field>
 
-          {/* Platform */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="current_platform" className="text-right text-sm">
-              Platform
-            </Label>
+          <Field label="Platform">
             <Input
-              id="current_platform"
               value={formData.current_platform || ""}
               onChange={(e) => handleInputChange("current_platform", e.target.value)}
-              className="col-span-3"
-              placeholder="Current platform"
+              className="h-7 text-xs"
             />
+          </Field>
+
+          {/* Row 6: Notes spanning 2 cols, Additional 1 col */}
+          <div className="col-span-2">
+            <Field label="Notes">
+              <Textarea
+                value={formData.notes || ""}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
+                className="text-xs h-16 resize-none"
+              />
+            </Field>
           </div>
 
-          {/* Notes */}
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="notes" className="text-right text-sm pt-2">
-              Notes
-            </Label>
+          <Field label="Additional Info">
             <Textarea
-              id="notes"
-              value={formData.notes || ""}
-              onChange={(e) => handleInputChange("notes", e.target.value)}
-              className="col-span-3"
-              placeholder="Notes..."
-              rows={3}
-            />
-          </div>
-
-          {/* Additional Info */}
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="additional_info" className="text-right text-sm pt-2">
-              Additional
-            </Label>
-            <Textarea
-              id="additional_info"
               value={formData.additional_info || ""}
               onChange={(e) => handleInputChange("additional_info", e.target.value)}
-              className="col-span-3"
-              placeholder="Additional info..."
-              rows={2}
+              className="text-xs h-16 resize-none"
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1.5 pt-3 border-t mt-3">
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
             onClick={() => onOpenChange(false)}
             disabled={isUpdating}
+            className="h-7 text-xs"
           >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isUpdating}>
-            {isUpdating ? "Saving..." : "Save Changes"}
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={isUpdating}
+            className="h-7 text-xs"
+          >
+            {isUpdating ? "Saving..." : "Save"}
           </Button>
         </div>
       </DialogContent>

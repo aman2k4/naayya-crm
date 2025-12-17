@@ -1,21 +1,36 @@
 "use client"
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
 import { Lead } from "@/types/crm"
 import { useToast } from "@/hooks/use-toast"
-import { BlobProvider } from '@react-pdf/renderer'
-import { ColdCallListDocument } from './ColdCallListDocument'
 import { FileText, Loader2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 
 interface ExportPdfButtonProps {
   leads: Lead[]
   disabled?: boolean
 }
 
+// Dynamically import react-pdf components to avoid SSR issues
+const BlobProvider = dynamic(
+  () => import('@react-pdf/renderer').then((mod) => mod.BlobProvider),
+  { ssr: false }
+)
+
+const ColdCallListDocument = dynamic(
+  () => import('./ColdCallListDocument').then((mod) => mod.ColdCallListDocument),
+  { ssr: false }
+)
+
 export function ExportPdfButton({ leads, disabled }: ExportPdfButtonProps) {
   const { toast } = useToast()
+  const [isClient, setIsClient] = useState(false)
+
+  React.useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleDownload = (blob: Blob | null, url: string | null) => {
     if (!blob || !url) {
@@ -44,9 +59,24 @@ export function ExportPdfButton({ leads, disabled }: ExportPdfButtonProps) {
     return null
   }
 
+  // Show loading state until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        className="h-9 text-xs"
+      >
+        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        Loading...
+      </Button>
+    )
+  }
+
   return (
     <BlobProvider document={<ColdCallListDocument leads={leads} />}>
-      {({ blob, url, loading, error }) => (
+      {({ blob, url, loading }: { blob: Blob | null; url: string | null; loading: boolean }) => (
         <Button
           variant="outline"
           size="sm"

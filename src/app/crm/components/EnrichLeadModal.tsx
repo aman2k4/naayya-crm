@@ -463,17 +463,46 @@ export default function EnrichLeadModal({
                   {allFields.map((field) => {
                     const g = gemini?.found?.[field] || "";
                     const p = perplexity?.found?.[field] || "";
-                    const status = diffStatus(field, g, p);
+                    const providersMatch = diffStatus(field, g, p) === "match";
                     const current = getCurrentValue(field);
+                    const gMatchesCurrent = isSameAsCurrent(field, g);
+                    const pMatchesCurrent = isSameAsCurrent(field, p);
+                    const bothMatchCurrent = g && p && gMatchesCurrent && pMatchesCurrent;
+                    const hasNewData = (g && !gMatchesCurrent) || (p && !pMatchesCurrent);
+                    const noDataFound = !g && !p;
 
-                    if (!g && !p) return null;
-
-                    const rowClass =
-                      status === "match"
-                        ? "border-green-200 dark:border-green-900/50 bg-green-50/60 dark:bg-green-950/25"
-                        : status === "diff"
-                          ? "border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20"
+                    // Determine row styling based on actionability
+                    // Green: Both providers agree AND differ from current (high confidence new data)
+                    // Amber: Providers disagree (user needs to choose)
+                    // Gray: Both match current OR no data found
+                    const rowClass = noDataFound
+                      ? "border-border bg-muted/10 opacity-50"
+                      : bothMatchCurrent
+                      ? "border-border bg-muted/20 opacity-60"
+                      : providersMatch && hasNewData
+                        ? "border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/40"
+                        : !providersMatch && (g && p)
+                          ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30"
                           : "border-border bg-muted/10";
+
+                    // Status badge
+                    const statusBadge = noDataFound ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] bg-muted text-muted-foreground">
+                        Not found
+                      </span>
+                    ) : bothMatchCurrent ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] bg-muted text-muted-foreground">
+                        No change needed
+                      </span>
+                    ) : providersMatch && hasNewData ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-medium">
+                        Both agree - new data
+                      </span>
+                    ) : !providersMatch && g && p ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">
+                        Providers differ
+                      </span>
+                    ) : null;
 
                     return (
                       <div
@@ -488,64 +517,62 @@ export default function EnrichLeadModal({
                                 Current: {current}
                               </div>
                             )}
-                            <div className="text-[10px] text-muted-foreground mt-1">
-                              {status === "match" ? "Match" : status === "diff" ? "Different" : ""}
-                            </div>
+                            {statusBadge && <div className="mt-1">{statusBadge}</div>}
                           </div>
 
                           {/* Gemini cell */}
                           <div className="min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="text-xs font-medium break-words">{g || "-"}</div>
-                              {g && (
-                                <Button
-                                  size="sm"
-                                  variant={appliedFields.has(field) ? "ghost" : "default"}
-                                  onClick={() => handleApplyField(field, g)}
-                                  disabled={isApplying || appliedFields.has(field) || isSameAsCurrent(field, g)}
-                                  className="h-6 text-[10px] px-2 shrink-0"
-                                >
-                                  {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
-                                </Button>
-                              )}
+                            <div className={`text-xs break-all ${gMatchesCurrent ? 'text-muted-foreground' : 'font-medium'}`}>
+                              {g || "-"}
                             </div>
-                            {g && isSameAsCurrent(field, g) && (
-                              <div className="text-[10px] text-muted-foreground mt-1">Same as current</div>
+                            {g && gMatchesCurrent && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">Same as current</div>
                             )}
                             {field === "website" && g && gemini?.websiteStatus && (
-                              <div className={`text-[10px] mt-1 ${gemini.websiteStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                              <div className={`text-[10px] mt-0.5 ${gemini.websiteStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
                                 {gemini.websiteStatus.valid
-                                  ? `✓ Working (${gemini.websiteStatus.status})`
-                                  : `✗ ${gemini.websiteStatus.error || `Error ${gemini.websiteStatus.status}`}`}
+                                  ? `Working (${gemini.websiteStatus.status})`
+                                  : `${gemini.websiteStatus.error || `Error ${gemini.websiteStatus.status}`}`}
                               </div>
+                            )}
+                            {g && !gMatchesCurrent && (
+                              <Button
+                                size="sm"
+                                variant={appliedFields.has(field) ? "ghost" : "default"}
+                                onClick={() => handleApplyField(field, g)}
+                                disabled={isApplying || appliedFields.has(field)}
+                                className="h-5 text-[10px] px-2 mt-1"
+                              >
+                                {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
+                              </Button>
                             )}
                           </div>
 
                           {/* Perplexity cell */}
                           <div className="min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="text-xs font-medium break-words">{p || "-"}</div>
-                              {p && (
-                                <Button
-                                  size="sm"
-                                  variant={appliedFields.has(field) ? "ghost" : "outline"}
-                                  onClick={() => handleApplyField(field, p)}
-                                  disabled={isApplying || appliedFields.has(field) || isSameAsCurrent(field, p)}
-                                  className="h-6 text-[10px] px-2 shrink-0"
-                                >
-                                  {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
-                                </Button>
-                              )}
+                            <div className={`text-xs break-all ${pMatchesCurrent ? 'text-muted-foreground' : 'font-medium'}`}>
+                              {p || "-"}
                             </div>
-                            {p && isSameAsCurrent(field, p) && (
-                              <div className="text-[10px] text-muted-foreground mt-1">Same as current</div>
+                            {p && pMatchesCurrent && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">Same as current</div>
                             )}
                             {field === "website" && p && perplexity?.websiteStatus && (
-                              <div className={`text-[10px] mt-1 ${perplexity.websiteStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                              <div className={`text-[10px] mt-0.5 ${perplexity.websiteStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
                                 {perplexity.websiteStatus.valid
-                                  ? `✓ Working (${perplexity.websiteStatus.status})`
-                                  : `✗ ${perplexity.websiteStatus.error || `Error ${perplexity.websiteStatus.status}`}`}
+                                  ? `Working (${perplexity.websiteStatus.status})`
+                                  : `${perplexity.websiteStatus.error || `Error ${perplexity.websiteStatus.status}`}`}
                               </div>
+                            )}
+                            {p && !pMatchesCurrent && (
+                              <Button
+                                size="sm"
+                                variant={appliedFields.has(field) ? "ghost" : "outline"}
+                                onClick={() => handleApplyField(field, p)}
+                                disabled={isApplying || appliedFields.has(field)}
+                                className="h-5 text-[10px] px-2 mt-1"
+                              >
+                                {appliedFields.has(field) ? <Check className="w-3 h-3" /> : "Apply"}
+                              </Button>
                             )}
                           </div>
                         </div>

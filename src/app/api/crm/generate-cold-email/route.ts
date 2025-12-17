@@ -13,7 +13,7 @@ const MODELS = [
   { id: 'chatgpt-4o', name: 'ChatGPT-4o', modelId: 'openai/chatgpt-4o-latest' },
   { id: 'gemini-3-pro', name: 'Gemini 3 Pro', modelId: 'google/gemini-3-pro-preview' },
   { id: 'claude-opus', name: 'Claude Opus 4.5', modelId: 'anthropic/claude-opus-4.5' },
-  { id: 'grok-4', name: 'Grok 4', modelId: 'x-ai/grok-4-fast' },
+  { id: 'kimi-k2', name: 'Kimi K2', modelId: 'moonshotai/kimi-k2' },
 ];
 
 function safeExtractJsonObject(text: string): { subject?: string; body?: string } | null {
@@ -100,11 +100,39 @@ export async function POST(request: NextRequest) {
     if (lead.additional_info) leadContext.additional_info = lead.additional_info;
     if (lead.notes) leadContext.notes = lead.notes;
 
-    // Determine currency based on country
-    const isUS = leadContext.country_code === 'US';
-    const currency = isUS ? '$' : '€';
-    const avgRevenuePerClass = isUS ? 35 : 30; // Avg revenue per class (attendance × price)
-    const nayyaProMonthly = isUS ? 200 : 200;
+    // Currency mapping by country code
+    const CURRENCY_MAP: Record<string, { symbol: string; avgRevenuePerClass: number; nayyaProMonthly: number }> = {
+      // Dollar countries
+      US: { symbol: '$', avgRevenuePerClass: 35, nayyaProMonthly: 200 },
+      AU: { symbol: 'A$', avgRevenuePerClass: 40, nayyaProMonthly: 300 },
+      CA: { symbol: 'C$', avgRevenuePerClass: 35, nayyaProMonthly: 270 },
+      NZ: { symbol: 'NZ$', avgRevenuePerClass: 35, nayyaProMonthly: 320 },
+      SG: { symbol: 'S$', avgRevenuePerClass: 40, nayyaProMonthly: 270 },
+      HK: { symbol: 'HK$', avgRevenuePerClass: 300, nayyaProMonthly: 1560 },
+      // Pound
+      GB: { symbol: '£', avgRevenuePerClass: 25, nayyaProMonthly: 160 },
+      // Euro countries (default)
+      DE: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
+      FR: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
+      IT: { symbol: '€', avgRevenuePerClass: 25, nayyaProMonthly: 200 },
+      ES: { symbol: '€', avgRevenuePerClass: 25, nayyaProMonthly: 200 },
+      NL: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
+      BE: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
+      AT: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
+      IE: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
+      PT: { symbol: '€', avgRevenuePerClass: 20, nayyaProMonthly: 200 },
+      LU: { symbol: '€', avgRevenuePerClass: 35, nayyaProMonthly: 200 },
+      // Other
+      CH: { symbol: 'CHF', avgRevenuePerClass: 40, nayyaProMonthly: 220 },
+      JP: { symbol: '¥', avgRevenuePerClass: 3500, nayyaProMonthly: 30000 },
+      IN: { symbol: '₹', avgRevenuePerClass: 800, nayyaProMonthly: 5000 },
+    };
+
+    const countryCode = (leadContext.country_code as string) || '';
+    const currencyConfig = CURRENCY_MAP[countryCode] || { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 };
+    const currency = currencyConfig.symbol;
+    const avgRevenuePerClass = currencyConfig.avgRevenuePerClass;
+    const nayyaProMonthly = currencyConfig.nayyaProMonthly;
 
     // Get data or use reasonable defaults
     const classesPerWeek = (leadContext.classes_per_week_estimate as number) || 10;
@@ -128,57 +156,65 @@ export async function POST(request: NextRequest) {
     const roundedSavings = Math.round(totalYearlySavings / 500) * 500;
     const savingsDisplay = `${currency}${roundedSavings.toLocaleString()}+`;
 
-    // Build prompt with lead context
-    const prompt = `You are Sally Gruniesen, co-founder of Naayya.
+    // Build what Sally researched based on available data
+    const researchedItems: string[] = [];
+    if (leadContext.website) researchedItems.push('their website');
+    if (leadContext.instagram) researchedItems.push('their Instagram');
+    if (leadContext.facebook) researchedItems.push('their Facebook');
+    if (leadContext.current_platform) researchedItems.push(`noticed they use ${leadContext.current_platform} for bookings`);
 
-Here's the studio you're writing to:
+    const researchSummary = researchedItems.length > 0
+      ? `You checked out ${researchedItems.slice(0, -1).join(', ')}${researchedItems.length > 1 ? ' and ' : ''}${researchedItems[researchedItems.length - 1]}.`
+      : 'You looked into their studio.';
+
+    // Build prompt with lead context
+    const prompt = `You are Sally Gruniesen, co-founder of Naayya. You've spent time researching this studio.
+
+${researchSummary}
+
+Here's what you know about them:
 
 ${JSON.stringify(leadContext, null, 2)}
 
-First, think: Who are the experts at writing cold emails to ${leadContext.business_type || 'fitness studio'}s${leadContext.current_platform ? ` that use ${leadContext.current_platform}` : ''}${leadContext.country_code ? ` in ${leadContext.country_code}` : ''}? What would they say? How would they open the email to get this specific person's attention?
+Write a SHORT cold email (4-6 lines max, not including signature) that feels like you genuinely researched them.
 
-Write like that expert would write - not a generic template.
+IMPORTANT - Only reference what you actually have data for:
+${leadContext.website ? `- You visited their website (${leadContext.website})` : ''}
+${leadContext.instagram ? `- You scrolled their Instagram (${leadContext.instagram})` : ''}
+${leadContext.facebook ? `- You checked their Facebook (${leadContext.facebook})` : ''}
+${leadContext.current_platform ? `- You noticed they use ${leadContext.current_platform} for bookings` : ''}
+${leadContext.classes_per_week_estimate ? `- You saw they run about ${classesPerWeek} classes/week` : ''}
+${instructors ? `- They have around ${instructors} instructors` : ''}
+${leadContext.additional_info ? `- Additional context: ${leadContext.additional_info}` : ''}
 
-Keep it SHORT. 4-6 lines max. People skim cold emails - if it's too long, they won't read it.
+Do NOT make up information you don't have. Only mention what's listed above.
 
-Background on Sally (use naturally, only when it adds value):
+What to convey:
+- You genuinely looked into them using the info above
+- ${leadContext.current_platform ? `Switching from ${leadContext.current_platform} to Naayya could save them ~${savingsDisplay} in year one` : `Switching to Naayya could save them ~${savingsDisplay} in year one`}
+- Frame numbers as your observation: "looks like you run about ${classesPerWeek} classes a week - switching could save you around ${savingsDisplay}"
+- Naayya isn't just cheaper - it's better for community-focused studios (growth tools, member retention)
+- Offer: 12 months of Naayya Pro free
+
+Background on Sally (use only if it fits naturally):
 - She's run her own studio for 7 years
-- She built Naayya because she understands studio owners' pain points
 
-The offer:
-- 12 months of Naayya Pro free
-- You chose them specifically
-
-What is Naayya (work this in naturally):
-- Studio management software built specifically for studios like theirs
-- Community-driven growth tools that help studios grow organically and retain members
-- It's not just about price - Naayya is genuinely better than ${leadContext.current_platform || 'their current platform'} for community-focused studios
-- Yes, also lower fees (2.5% vs 4-5%) but lead with the value, not just savings
-
-Savings (based on their data):
-- ~${classesPerWeek} classes/week${instructors ? `, ${instructors} instructors` : ''}
-- Switching from ${leadContext.current_platform || 'their platform'} + free Naayya Pro = ~${savingsDisplay} first year
-- Mention casually: "with your ${classesPerWeek} classes a week, that's around ${savingsDisplay} saved in year one"
-
-Structure (4-6 lines total, not including signature):
-1. Quick opener - specific to them, 1 line
-2. The pitch - Naayya + offer + switching + savings (${savingsDisplay}) - 2-3 lines
-3. CTA - check Naayya.com or reply - 1 line
+CTA: Keep it casual and human, like writing to a friend. Examples:
+- "If you're curious, I'd love to show you around - just reply to this email"
+- "Happy to walk you through it if you're interested - just hit reply"
+- "Would love to show you how it works - reply and we can chat"
+Don't be salesy. Just a friendly offer to show them.
 
 Guidelines:
-- BREVITY is key - every word must earn its place
-- VARY your opening - don't always lead with "As a studio owner..." or "I came across..."
-- Get to the point fast
+- EVERY mention of "Naayya" must be hyperlinked: <a href="https://naayya.com">Naayya</a>
+- Sound like you actually researched them
+- BREVITY - every word must earn its place
+- Don't always open the same way
 - End with: "Sally\\nCo-founder, <a href="https://naayya.com">Naayya.com</a>"
 
 Return JSON only: { "subject": "...", "body": "..." }
 - Subject: Short, specific to them
-- Body formatting:
-  - Use \\n for line breaks
-  - Use <a href="https://naayya.com">Naayya.com</a> for links
-  - Use <b>text</b> for bold (sparingly, only if really needed)
-  - Do NOT use markdown like **text** or *text* - it won't render in email
-  - Keep it simple - plain text is usually best`;
+- Body: Use \\n for line breaks. EVERY "Naayya" must be <a href="https://naayya.com">Naayya</a>. No markdown. Keep it simple.`;
 
     // Check OpenRouter API key
     if (!process.env.OPENROUTER_API_KEY) {

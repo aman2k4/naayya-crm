@@ -38,6 +38,7 @@ import {
   Send,
   Sparkles,
   Loader2,
+  X,
 } from "lucide-react";
 import EditLeadDialog from "./components/EditLeadDialog";
 import EnrichLeadModal from "./components/EnrichLeadModal";
@@ -866,6 +867,49 @@ function CRMDashboardContent() {
     );
   };
 
+  // Check if any filters are active
+  const hasActiveFilters =
+    searchTerm.trim() !== "" ||
+    selectedCountry !== "__all__" ||
+    selectedPlatform !== "__all__" ||
+    selectedSource !== "__all__" ||
+    selectedEmailStatus !== "__all__" ||
+    lastEmailFrom !== "" ||
+    lastEmailTo !== "" ||
+    minEmailsSent !== "" ||
+    maxEmailsSent !== "" ||
+    everEmailedOnly;
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    // Reset all filter states
+    setSearchTerm("");
+    setSearchInput("");
+    setSelectedCountry("__all__");
+    setSelectedPlatform("__all__");
+    setSelectedSource("__all__");
+    setSelectedEmailStatus("__all__");
+    setLastEmailFrom("");
+    setLastEmailTo("");
+    setMinEmailsSent("");
+    setMaxEmailsSent("");
+    setEverEmailedOnly(false);
+    setCurrentPage(1);
+    setSortField("last_email");
+    setSortDirection("desc");
+
+    // Clear selections
+    setSelectedLeads(new Set());
+    setIsAllFilteredSelected(false);
+    setAllFilteredLeads([]);
+
+    // Clear URL parameters
+    router.push("/crm", { scroll: false });
+
+    // Fetch leads with default parameters
+    fetchLeads(1, "", "", "", undefined, "", "", "", "", "", "", "last_email", "desc");
+  };
+
   const handleRowsPerPageChange = (newRowsPerPage: number) => {
     setRowsPerPage(newRowsPerPage);
     setCurrentPage(1); // Reset to first page when changing rows per page
@@ -1373,6 +1417,18 @@ function CRMDashboardContent() {
             Ever emailed (≥1)
           </Label>
         </div>
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearFilters}
+            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-3 h-3 mr-1" />
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {/* Leads Table */}

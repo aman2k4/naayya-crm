@@ -218,7 +218,7 @@ function LeadRow({
           <div className="flex gap-1">
             {lead.instagram && (
               <a
-                href={`https://instagram.com/${lead.instagram.replace("@", "")}`}
+                href={lead.instagram.startsWith("http") ? lead.instagram : `https://instagram.com/${lead.instagram.replace("@", "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-pink-600 hover:underline text-[9px]"

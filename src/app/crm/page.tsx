@@ -39,6 +39,7 @@ import {
   Sparkles,
   Loader2,
   X,
+  Download,
 } from "lucide-react";
 import EditLeadDialog from "./components/EditLeadDialog";
 import EnrichLeadModal from "./components/EnrichLeadModal";
@@ -437,6 +438,85 @@ function CRMDashboardContent() {
 
   const handleGenerateEmail = (lead: Lead) => {
     setColdEmailLead(lead);
+  };
+
+  const handleExportCSV = (leadsToExport: Lead[]) => {
+    if (leadsToExport.length === 0) return;
+
+    const headers = [
+      "Studio Name",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Phone",
+      "Website",
+      "Instagram",
+      "Facebook",
+      "City",
+      "State",
+      "Country",
+      "Business Type",
+      "Platform",
+      "Lead Source",
+      "Classes/Week",
+      "Instructors",
+      "Response Status",
+      "Notes",
+      "Additional Info",
+      "Created At",
+      "Updated At",
+    ];
+
+    const rows = leadsToExport.map((lead) => [
+      lead.studio_name || "",
+      lead.first_name || "",
+      lead.last_name || "",
+      lead.email || "",
+      lead.phone_number || "",
+      lead.website || "",
+      lead.instagram || "",
+      lead.facebook || "",
+      lead.city || "",
+      lead.state || "",
+      lead.country_code || "",
+      lead.business_type || "",
+      lead.current_platform || "",
+      lead.lead_source || "",
+      lead.classes_per_week_estimate?.toString() || "",
+      lead.instructors_count_estimate?.toString() || "",
+      lead.response_status || "",
+      lead.notes || "",
+      lead.additional_info || "",
+      lead.created_at || "",
+      lead.updated_at || "",
+    ]);
+
+    const escapeCSV = (value: string) => {
+      if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const csvContent = [
+      headers.map(escapeCSV).join(","),
+      ...rows.map((row) => row.map(escapeCSV).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exported",
+      description: `${leadsToExport.length} leads exported to CSV`,
+    });
   };
 
   // Fetch all unique filter values for dropdowns
@@ -1222,6 +1302,15 @@ function CRMDashboardContent() {
               >
                 <Mail className="w-3 h-3 mr-1" />
                 Audience ({selectedLeads.size})
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCSV(leads.filter(lead => selectedLeads.has(lead.id)))}
+                className="h-9 text-xs"
+              >
+                <Download className="w-3 h-3 mr-1" />
+                CSV ({selectedLeads.size})
               </Button>
               {selectedLeads.size <= 10 ? (
                 <Button

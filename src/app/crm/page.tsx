@@ -45,7 +45,6 @@ import EnrichLeadModal from "./components/EnrichLeadModal";
 import BulkEnrichmentReviewModal from "./components/BulkEnrichmentReviewModal";
 import { ColdEmailPreviewModal } from "./components/ColdEmailPreviewModal";
 import { LeadsTable } from "./components/LeadsTable";
-import { ExportPdfButton } from "./components/ExportPdfButton";
 import { EnrichmentProvider, useEnrichment } from "./context/EnrichmentContext";
 
 const EMAIL_STATUS_OPTIONS = [
@@ -1224,10 +1223,6 @@ function CRMDashboardContent() {
                 <Mail className="w-3 h-3 mr-1" />
                 Audience ({selectedLeads.size})
               </Button>
-              <ExportPdfButton
-                leads={leads.filter(lead => selectedLeads.has(lead.id))}
-                disabled={isBulkEnriching || isDeleting}
-              />
               {selectedLeads.size <= 10 ? (
                 <Button
                   variant="outline"

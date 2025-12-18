@@ -64,7 +64,6 @@ export const MindbodyEnterpriseOfferV1 = ({
   </Html>
 );
 
-export default MindbodyEnterpriseOfferV1;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

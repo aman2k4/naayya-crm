@@ -56,7 +56,6 @@ export const YogaMindbodyOutreachV4 = ({
   </Html>
 );
 
-export default YogaMindbodyOutreachV4;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

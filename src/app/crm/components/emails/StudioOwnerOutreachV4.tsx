@@ -65,7 +65,6 @@ export const StudioOwnerOutreachV4 = ({
   </Html>
 );
 
-export default StudioOwnerOutreachV4;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

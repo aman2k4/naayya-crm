@@ -63,7 +63,6 @@ export const EversportsGenericOutreachV1 = ({
   </Html>
 );
 
-export default EversportsGenericOutreachV1;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

@@ -59,7 +59,6 @@ export const GenericFollowUpV2 = ({
   </Html>
 );
 
-export default GenericFollowUpV2;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

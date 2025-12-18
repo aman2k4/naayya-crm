@@ -1,0 +1,189 @@
+Unused dependencies (1)
+@react-pdf/renderer  package.json:26:6
+Unused exports (60)
+EversportsGenericOutreachV1            src/app/crm/components/emails/EversportsGenericOutreachV1.tsx:18:14
+EversportsMigrationOutreach            src/app/crm/components/emails/EversportsMigrationOutreach.tsx:16:14
+EversportsOfferOutreachV1              src/app/crm/components/emails/EversportsOfferOutreachV1.tsx:18:14  
+EversportsOfferOutreachV2              src/app/crm/components/emails/EversportsOfferOutreachV2.tsx:18:14  
+EversportsSallyFollowUpDE              src/app/crm/components/emails/EversportsSallyFollowUpDE.tsx:18:14  
+EversportsSallyFollowUpV2              src/app/crm/components/emails/EversportsSallyFollowUpV2.tsx:18:14  
+GenericFollowUpV1                      src/app/crm/components/emails/GenericFollowUpV1.tsx:18:14          
+GenericFollowUpV2                      src/app/crm/components/emails/GenericFollowUpV2.tsx:18:14          
+MerrithewPilatesOutreachV1             src/app/crm/components/emails/MerrithewPilatesOutreachV1.tsx:19:14 
+MerrithewPilatesOutreachV2             src/app/crm/components/emails/MerrithewPilatesOutreachV2.tsx:19:14 
+MindbodyEnterpriseOfferV1              src/app/crm/components/emails/MindbodyEnterpriseOfferV1.tsx:17:14  
+MindbodyPartnershipOutreach            src/app/crm/components/emails/MindbodyPartnershipOutreach.tsx:17:14
+StudioOwnerOutreach                    src/app/crm/components/emails/StudioOwnerOutreach.tsx:17:14        
+StudioOwnerOutreachV3                  src/app/crm/components/emails/StudioOwnerOutreachV3.tsx:18:14      
+StudioOwnerOutreachV4                  src/app/crm/components/emails/StudioOwnerOutreachV4.tsx:16:14      
+YogaMindbodyOutreachV1                 src/app/crm/components/emails/YogaMindbodyOutreachV1.tsx:18:14     
+YogaMindbodyOutreachV2                 src/app/crm/components/emails/YogaMindbodyOutreachV2.tsx:17:14     
+YogaMindbodyOutreachV3                 src/app/crm/components/emails/YogaMindbodyOutreachV3.tsx:18:14     
+YogaMindbodyOutreachV4                 src/app/crm/components/emails/YogaMindbodyOutreachV4.tsx:17:14     
+AvatarImage                            src/components/ui/avatar.tsx:50:18                                 
+badgeVariants                          src/components/ui/badge.tsx:40:17                                  
+buttonVariants                         src/components/ui/button.tsx:60:18                                 
+CardFooter                             src/components/ui/card.tsx:87:3                                    
+CardAction                             src/components/ui/card.tsx:89:3                                    
+CardDescription                        src/components/ui/card.tsx:90:3                                    
+DialogPortal                           src/components/ui/dialog.tsx:112:3                                 
+DialogOverlay                          src/components/ui/dialog.tsx:113:3                                 
+DialogClose                            src/components/ui/dialog.tsx:115:3                                 
+DropdownMenuCheckboxItem               src/components/ui/dropdown-menu.tsx:194:3                          
+DropdownMenuRadioItem                  src/components/ui/dropdown-menu.tsx:195:3                          
+DropdownMenuLabel                      src/components/ui/dropdown-menu.tsx:196:3                          
+DropdownMenuSeparator                  src/components/ui/dropdown-menu.tsx:197:3                          
+DropdownMenuShortcut                   src/components/ui/dropdown-menu.tsx:198:3                          
+DropdownMenuGroup                      src/components/ui/dropdown-menu.tsx:199:3                          
+DropdownMenuPortal                     src/components/ui/dropdown-menu.tsx:200:3                          
+DropdownMenuSub                        src/components/ui/dropdown-menu.tsx:201:3                          
+DropdownMenuSubContent                 src/components/ui/dropdown-menu.tsx:202:3                          
+DropdownMenuSubTrigger                 src/components/ui/dropdown-menu.tsx:203:3                          
+DropdownMenuRadioGroup                 src/components/ui/dropdown-menu.tsx:204:3                          
+SelectGroup                            src/components/ui/select.tsx:179:3                                 
+SelectLabel                            src/components/ui/select.tsx:181:3                                 
+SelectScrollDownButton                 src/components/ui/select.tsx:182:3                                 
+SelectScrollUpButton                   src/components/ui/select.tsx:183:3                                 
+SelectSeparator                        src/components/ui/select.tsx:184:3                                 
+TableFooter                            src/components/ui/table.tsx:115:3                                  
+TableCaption                           src/components/ui/table.tsx:119:3                                  
+ToastAction                            src/components/ui/toast.tsx:128:3                                  
+reducer                                src/hooks/use-toast.ts:77:14                                       
+toast                                  src/hooks/use-toast.ts:194:20                                      
+formatFromEmail              function  src/lib/crm/emailSenderConfig.ts:17:17                             
+getSenderById                function  src/lib/crm/emailSenderConfig.ts:22:17                             
+getStatusDisplay                       src/lib/crm/emailStatusHelpers.ts:40:14                            
+EMAIL_TEMPLATES                        src/lib/crm/emailTemplates.ts:35:14                                
+standardizePhoneNumber       function  src/lib/crm/enrichmentNormalization.ts:3:17                        
+standardizeWebsite           function  src/lib/crm/enrichmentNormalization.ts:17:17                       
+standardizeCountryCode       function  src/lib/crm/enrichmentNormalization.ts:46:17                       
+standardizeState             function  src/lib/crm/enrichmentNormalization.ts:106:17                      
+UserSchema                             src/types/database.ts:16:14                                        
+COOKIE_MAX_AGE_SECONDS                 src/utils/supabase/cookieOptions.ts:23:14                          
+getServerUser                function  src/utils/supabase/server.ts:100:23                                
+Unused exported types (105)
+BadgeProps                       interface  src/components/ui/badge.tsx:30:18      
+EmailSender                      interface  src/lib/crm/emailSenderConfig.ts:4:18  
+StatusDisplay                    interface  src/lib/crm/emailStatusHelpers.ts:27:18
+EmailTemplate                    interface  src/lib/crm/emailTemplates.ts:26:18    
+BusinessTypeKeyword              type       src/lib/crm/enrichmentTaxonomy.ts:22:13
+UpdateLeadInput                  interface  src/types/crm.ts:80:18                 
+LeadEnrichmentConflict           interface  src/types/crm.ts:85:18                 
+LeadEnrichmentProvider           type       src/types/crm.ts:91:13                 
+WebsiteStatus                    interface  src/types/crm.ts:93:18                 
+BulkEnrichmentPreviewResult      interface  src/types/crm.ts:139:18                
+TeacherCancellationPolicy        interface  src/types/database.ts:4:18             
+Class                            interface  src/types/database.ts:28:18            
+AttendanceStatus                 type       src/types/database.ts:47:13            
+ArchiveClassInstanceBookingData  interface  src/types/database.ts:50:18            
+ArchiveClassInstanceResponse     interface  src/types/database.ts:63:18            
+Booking                          type       src/types/database.ts:75:13            
+Schedule                         interface  src/types/database.ts:93:18            
+ClassInstance                    interface  src/types/database.ts:109:18           
+Teacher                          type       src/types/database.ts:129:13           
+ClassTeacherLink                 interface  src/types/database.ts:148:18           
+ClassInstanceTeacherLink         interface  src/types/database.ts:159:18           
+Location                         type       src/types/database.ts:170:13           
+Product                          interface  src/types/database.ts:194:18           
+ExtendedClassInstance            interface  src/types/database.ts:230:18           
+ClassProduct                     interface  src/types/database.ts:327:18           
+Profile                          interface  src/types/database.ts:337:18           
+ProfileUpdateFields              interface  src/types/database.ts:355:18           
+CreateClassProductInput          interface  src/types/database.ts:368:18           
+Payment                          interface  src/types/database.ts:374:18           
+PaymentTransaction               interface  src/types/database.ts:411:18           
+PaymentWithTransaction           interface  src/types/database.ts:442:18           
+UserCredit                       interface  src/types/database.ts:446:18           
+ClassPass                        interface  src/types/database.ts:464:18           
+BookingWithClassInstance         interface  src/types/database.ts:474:18           
+BookingView                      interface  src/types/database.ts:510:18           
+Studio                           interface  src/types/database.ts:547:18           
+StripeSessionMetadata            interface  src/types/database.ts:569:18           
+UserRoleResponse                 interface  src/types/database.ts:589:18           
+UserRole                         type       src/types/database.ts:608:13           
+CreditInfo                       interface  src/types/database.ts:630:18           
+StudioResponse                   interface  src/types/database.ts:653:18           
+ConflictingInstance              interface  src/types/database.ts:663:18           
+ProductFormData                  interface  src/types/database.ts:674:18           
+ActiveProduct                    interface  src/types/database.ts:701:18           
+Coupon                           interface  src/types/database.ts:727:18           
+TemporaryProfile                 interface  src/types/database.ts:744:18           
+Inventory                        interface  src/types/database.ts:751:18           
+ProductImage                     interface  src/types/database.ts:762:18           
+PhysicalProductWithImages        interface  src/types/database.ts:771:18           
+CartItem                         interface  src/types/database.ts:778:18           
+Cart                             interface  src/types/database.ts:791:18           
+Order                            interface  src/types/database.ts:797:18           
+OrderItem                        interface  src/types/database.ts:819:18           
+OrderWithDetails                 interface  src/types/database.ts:836:18           
+Feedback                         interface  src/types/database.ts:869:18           
+FeedbackWithDetails              interface  src/types/database.ts:883:18           
+FeedbackSubmission               interface  src/types/database.ts:904:18           
+FeedbackStatus                   interface  src/types/database.ts:911:18           
+ReferralLink                     interface  src/types/database.ts:916:18           
+ReferralData                     interface  src/types/database.ts:927:18           
+Referral                         interface  src/types/database.ts:947:18           
+TeacherStats                     interface  src/types/database.ts:957:18           
+Contract                         interface  src/types/database.ts:1011:18          
+ContractAssignment               interface  src/types/database.ts:1026:18          
+CreateContractInput              interface  src/types/database.ts:1038:18          
+UpdateContractInput              interface  src/types/database.ts:1048:18          
+CreateAssignmentInput            interface  src/types/database.ts:1061:18          
+UpdateAssignmentInput            interface  src/types/database.ts:1068:18          
+ContractVersion                  interface  src/types/database.ts:1076:18          
+StripePaymentMethod              interface  src/types/database.ts:1087:18          
+ContractAssignmentWithDetails    interface  src/types/database.ts:1111:18          
+TeacherPayout                    interface  src/types/database.ts:1118:18          
+StudioOwner                      interface  src/types/database.ts:1127:18          
+StripeProduct                    interface  src/types/database.ts:1135:18          
+StudioWaiver                     interface  src/types/database.ts:1160:18          
+SocialMediaDesign                interface  src/types/database.ts:1190:18          
+ProgramSchedulePattern           interface  src/types/database.ts:1212:18          
+ProgramData                      interface  src/types/database.ts:1221:18          
+ProgramFilter                    interface  src/types/database.ts:1242:18          
+Subscription                     interface  src/types/database.ts:1256:18          
+SubscriptionPeriod               interface  src/types/database.ts:1294:18          
+SubscriptionSummary              interface  src/types/database.ts:1310:18          
+LifetimeValue                    interface  src/types/database.ts:1334:18          
+ClassStats                       interface  src/types/database.ts:1344:18          
+GiftCardStatus                   type       src/types/database.ts:1353:13          
+GiftCardTransactionType          type       src/types/database.ts:1354:13          
+GiftCardTheme                    type       src/types/database.ts:1355:13          
+EffectIntensity                  type       src/types/database.ts:1356:13          
+GiftCardDesignConfig             interface  src/types/database.ts:1358:18          
+GiftCardTemplate                 interface  src/types/database.ts:1367:18          
+GiftCardPriceTier                interface  src/types/database.ts:1383:18          
+GiftCard                         interface  src/types/database.ts:1393:18          
+GiftCardTransaction              interface  src/types/database.ts:1419:18          
+GiftCardTemplateWithTiers        interface  src/types/database.ts:1434:18          
+GiftCardWithDetails              interface  src/types/database.ts:1439:18          
+CreateGiftCardTemplateInput      interface  src/types/database.ts:1448:18          
+UpdateGiftCardTemplateInput      interface  src/types/database.ts:1460:18          
+CreateGiftCardPurchaseInput      interface  src/types/database.ts:1468:18          
+GiftCardRedemptionInput          interface  src/types/database.ts:1478:18          
+ResendAudience                   interface  src/types/resend.ts:3:18               
+ResendContact                    interface  src/types/resend.ts:9:18               
+ResendAudienceResponse           interface  src/types/resend.ts:18:18              
+ResendContactsResponse           interface  src/types/resend.ts:23:18              
+CachedContact                    interface  src/types/resend.ts:29:18              
+SyncStatsResponse                interface  src/types/resend.ts:43:18              
+Duplicate exports (19)
+EversportsGenericOutreachV1|default  src/app/crm/components/emails/EversportsGenericOutreachV1.tsx
+EversportsMigrationOutreach|default  src/app/crm/components/emails/EversportsMigrationOutreach.tsx
+EversportsOfferOutreachV1|default    src/app/crm/components/emails/EversportsOfferOutreachV1.tsx  
+EversportsOfferOutreachV2|default    src/app/crm/components/emails/EversportsOfferOutreachV2.tsx  
+EversportsSallyFollowUpDE|default    src/app/crm/components/emails/EversportsSallyFollowUpDE.tsx  
+EversportsSallyFollowUpV2|default    src/app/crm/components/emails/EversportsSallyFollowUpV2.tsx  
+GenericFollowUpV1|default            src/app/crm/components/emails/GenericFollowUpV1.tsx          
+GenericFollowUpV2|default            src/app/crm/components/emails/GenericFollowUpV2.tsx          
+MerrithewPilatesOutreachV1|default   src/app/crm/components/emails/MerrithewPilatesOutreachV1.tsx 
+MerrithewPilatesOutreachV2|default   src/app/crm/components/emails/MerrithewPilatesOutreachV2.tsx 
+MindbodyEnterpriseOfferV1|default    src/app/crm/components/emails/MindbodyEnterpriseOfferV1.tsx  
+MindbodyPartnershipOutreach|default  src/app/crm/components/emails/MindbodyPartnershipOutreach.tsx
+StudioOwnerOutreach|default          src/app/crm/components/emails/StudioOwnerOutreach.tsx        
+StudioOwnerOutreachV3|default        src/app/crm/components/emails/StudioOwnerOutreachV3.tsx      
+StudioOwnerOutreachV4|default        src/app/crm/components/emails/StudioOwnerOutreachV4.tsx      
+YogaMindbodyOutreachV1|default       src/app/crm/components/emails/YogaMindbodyOutreachV1.tsx     
+YogaMindbodyOutreachV2|default       src/app/crm/components/emails/YogaMindbodyOutreachV2.tsx     
+YogaMindbodyOutreachV3|default       src/app/crm/components/emails/YogaMindbodyOutreachV3.tsx     
+YogaMindbodyOutreachV4|default       src/app/crm/components/emails/YogaMindbodyOutreachV4.tsx     

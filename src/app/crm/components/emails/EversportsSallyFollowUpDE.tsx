@@ -84,7 +84,6 @@ export const EversportsSallyFollowUpDE = ({
   </Html>
 );
 
-export default EversportsSallyFollowUpDE;
 
 const main = {
   backgroundColor: "#ffffff",

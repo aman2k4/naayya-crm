@@ -76,7 +76,6 @@ export const MerrithewPilatesOutreachV2 = ({
   </Html>
 );
 
-export default MerrithewPilatesOutreachV2;
 
 const main = {
   backgroundColor: "#ffffff",

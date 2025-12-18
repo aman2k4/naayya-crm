@@ -61,7 +61,6 @@ export const EversportsOfferOutreachV2 = ({
   </Html>
 );
 
-export default EversportsOfferOutreachV2;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

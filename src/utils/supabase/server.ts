@@ -94,39 +94,3 @@ export async function createClientForServiceRole() {
   )
 }
 
-// Get user server-side for SSR - used to pass initial auth state to client
-// This avoids the client-side auth bootstrap delay
-// Returns: User object if authenticated, null if not authenticated, undefined if check failed/skipped
-export async function getServerUser(): Promise<SupabaseUser | null | undefined> {
-  try {
-    const cookieStore = await cookies()
-    const allCookies = cookieStore.getAll()
-
-    // Only check auth if Supabase auth cookies exist
-    // This avoids unnecessary Supabase calls on public pages for logged-out users
-    const hasAuthCookie = allCookies.some(cookie =>
-      cookie.name.includes('-auth-token') || cookie.name.includes('sb-')
-    )
-
-    if (!hasAuthCookie) {
-      // No auth cookies = definitely not logged in, no need to call Supabase
-      return null
-    }
-
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
-
-    if (error) {
-      // Auth check failed - return undefined so client falls back to its own check
-      console.error('[getServerUser] Auth check failed:', error.message)
-      return undefined
-    }
-
-    // Explicitly checked: user is either authenticated (User) or not (null)
-    return user
-  } catch (err) {
-    // Network/server error - return undefined so client falls back
-    console.error('[getServerUser] Server error:', err)
-    return undefined
-  }
-}

@@ -75,7 +75,6 @@ export const MindbodyPartnershipOutreach = ({
   </Html>
 );
 
-export default MindbodyPartnershipOutreach;
 
 // Clean, spacious formatting
 const main = {

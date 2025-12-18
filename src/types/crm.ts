@@ -77,9 +77,6 @@ export interface CreateLeadInput {
   additional_info?: string;
 }
 
-export interface UpdateLeadInput extends Partial<CreateLeadInput> {
-  // All fields are optional for updates
-}
 
 // Lead enrichment types
 export interface LeadEnrichmentConflict {
@@ -96,6 +93,7 @@ export interface WebsiteStatus {
   error?: string;
   finalUrl?: string;
 }
+
 
 export interface LeadEnrichmentProviderResult {
   provider: LeadEnrichmentProvider;
@@ -136,14 +134,6 @@ export interface BulkEnrichmentPreviewItem {
   error?: string;
 }
 
-export interface BulkEnrichmentPreviewResult {
-  items: BulkEnrichmentPreviewItem[];
-  summary: {
-    total: number;
-    successful: number;
-    failed: number;
-  };
-}
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed';
 

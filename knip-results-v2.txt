@@ -1,0 +1,134 @@
+Unused exports (31)
+AvatarImage               src/components/ui/avatar.tsx:50:18       
+badgeVariants             src/components/ui/badge.tsx:40:17        
+buttonVariants            src/components/ui/button.tsx:60:18       
+CardFooter                src/components/ui/card.tsx:87:3          
+CardAction                src/components/ui/card.tsx:89:3          
+CardDescription           src/components/ui/card.tsx:90:3          
+DialogPortal              src/components/ui/dialog.tsx:112:3       
+DialogOverlay             src/components/ui/dialog.tsx:113:3       
+DialogClose               src/components/ui/dialog.tsx:115:3       
+DropdownMenuCheckboxItem  src/components/ui/dropdown-menu.tsx:194:3
+DropdownMenuRadioItem     src/components/ui/dropdown-menu.tsx:195:3
+DropdownMenuLabel         src/components/ui/dropdown-menu.tsx:196:3
+DropdownMenuSeparator     src/components/ui/dropdown-menu.tsx:197:3
+DropdownMenuShortcut      src/components/ui/dropdown-menu.tsx:198:3
+DropdownMenuGroup         src/components/ui/dropdown-menu.tsx:199:3
+DropdownMenuPortal        src/components/ui/dropdown-menu.tsx:200:3
+DropdownMenuSub           src/components/ui/dropdown-menu.tsx:201:3
+DropdownMenuSubContent    src/components/ui/dropdown-menu.tsx:202:3
+DropdownMenuSubTrigger    src/components/ui/dropdown-menu.tsx:203:3
+DropdownMenuRadioGroup    src/components/ui/dropdown-menu.tsx:204:3
+SelectGroup               src/components/ui/select.tsx:179:3       
+SelectLabel               src/components/ui/select.tsx:181:3       
+SelectScrollDownButton    src/components/ui/select.tsx:182:3       
+SelectScrollUpButton      src/components/ui/select.tsx:183:3       
+SelectSeparator           src/components/ui/select.tsx:184:3       
+TableFooter               src/components/ui/table.tsx:115:3        
+TableCaption              src/components/ui/table.tsx:119:3        
+ToastAction               src/components/ui/toast.tsx:128:3        
+reducer                   src/hooks/use-toast.ts:77:14             
+toast                     src/hooks/use-toast.ts:194:20            
+EMAIL_TEMPLATES           src/lib/crm/emailTemplates.ts:35:14      
+Unused exported types (101)
+BadgeProps                     interface  src/components/ui/badge.tsx:30:18      
+EmailSender                    interface  src/lib/crm/emailSenderConfig.ts:4:18  
+EmailTemplate                  interface  src/lib/crm/emailTemplates.ts:26:18    
+BusinessTypeKeyword            type       src/lib/crm/enrichmentTaxonomy.ts:22:13
+UpdateLeadInput                interface  src/types/crm.ts:80:18                 
+LeadEnrichmentConflict         interface  src/types/crm.ts:85:18                 
+LeadEnrichmentProvider         type       src/types/crm.ts:91:13                 
+WebsiteStatus                  interface  src/types/crm.ts:93:18                 
+BulkEnrichmentPreviewResult    interface  src/types/crm.ts:139:18                
+Class                          interface  src/types/database.ts:4:18             
+AttendanceStatus               type       src/types/database.ts:23:13            
+Booking                        type       src/types/database.ts:26:13            
+Schedule                       interface  src/types/database.ts:44:18            
+ClassInstance                  interface  src/types/database.ts:60:18            
+Teacher                        type       src/types/database.ts:80:13            
+ClassTeacherLink               interface  src/types/database.ts:99:18            
+ClassInstanceTeacherLink       interface  src/types/database.ts:110:18           
+Location                       type       src/types/database.ts:121:13           
+Product                        interface  src/types/database.ts:145:18           
+ExtendedClassInstance          interface  src/types/database.ts:181:18           
+ClassProduct                   interface  src/types/database.ts:278:18           
+Profile                        interface  src/types/database.ts:288:18           
+ProfileUpdateFields            interface  src/types/database.ts:306:18           
+CreateClassProductInput        interface  src/types/database.ts:319:18           
+Payment                        interface  src/types/database.ts:325:18           
+PaymentTransaction             interface  src/types/database.ts:362:18           
+PaymentWithTransaction         interface  src/types/database.ts:393:18           
+UserCredit                     interface  src/types/database.ts:397:18           
+ClassPass                      interface  src/types/database.ts:415:18           
+BookingWithClassInstance       interface  src/types/database.ts:425:18           
+BookingView                    interface  src/types/database.ts:461:18           
+Studio                         interface  src/types/database.ts:498:18           
+StripeSessionMetadata          interface  src/types/database.ts:520:18           
+UserRoleResponse               interface  src/types/database.ts:540:18           
+UserRole                       type       src/types/database.ts:559:13           
+CreditInfo                     interface  src/types/database.ts:581:18           
+StudioResponse                 interface  src/types/database.ts:604:18           
+ConflictingInstance            interface  src/types/database.ts:614:18           
+ProductFormData                interface  src/types/database.ts:625:18           
+ActiveProduct                  interface  src/types/database.ts:652:18           
+Coupon                         interface  src/types/database.ts:678:18           
+TemporaryProfile               interface  src/types/database.ts:695:18           
+Inventory                      interface  src/types/database.ts:702:18           
+ProductImage                   interface  src/types/database.ts:713:18           
+PhysicalProductWithImages      interface  src/types/database.ts:722:18           
+CartItem                       interface  src/types/database.ts:729:18           
+Cart                           interface  src/types/database.ts:742:18           
+Order                          interface  src/types/database.ts:748:18           
+OrderItem                      interface  src/types/database.ts:770:18           
+OrderWithDetails               interface  src/types/database.ts:787:18           
+Feedback                       interface  src/types/database.ts:820:18           
+FeedbackWithDetails            interface  src/types/database.ts:834:18           
+FeedbackSubmission             interface  src/types/database.ts:855:18           
+FeedbackStatus                 interface  src/types/database.ts:862:18           
+ReferralLink                   interface  src/types/database.ts:867:18           
+ReferralData                   interface  src/types/database.ts:878:18           
+Referral                       interface  src/types/database.ts:898:18           
+TeacherStats                   interface  src/types/database.ts:908:18           
+Contract                       interface  src/types/database.ts:962:18           
+ContractAssignment             interface  src/types/database.ts:977:18           
+CreateContractInput            interface  src/types/database.ts:989:18           
+UpdateContractInput            interface  src/types/database.ts:999:18           
+CreateAssignmentInput          interface  src/types/database.ts:1012:18          
+UpdateAssignmentInput          interface  src/types/database.ts:1019:18          
+ContractVersion                interface  src/types/database.ts:1027:18          
+StripePaymentMethod            interface  src/types/database.ts:1038:18          
+ContractAssignmentWithDetails  interface  src/types/database.ts:1062:18          
+TeacherPayout                  interface  src/types/database.ts:1069:18          
+StudioOwner                    interface  src/types/database.ts:1078:18          
+StripeProduct                  interface  src/types/database.ts:1086:18          
+StudioWaiver                   interface  src/types/database.ts:1111:18          
+SocialMediaDesign              interface  src/types/database.ts:1141:18          
+ProgramSchedulePattern         interface  src/types/database.ts:1163:18          
+ProgramData                    interface  src/types/database.ts:1172:18          
+ProgramFilter                  interface  src/types/database.ts:1193:18          
+Subscription                   interface  src/types/database.ts:1207:18          
+SubscriptionPeriod             interface  src/types/database.ts:1245:18          
+SubscriptionSummary            interface  src/types/database.ts:1261:18          
+LifetimeValue                  interface  src/types/database.ts:1285:18          
+ClassStats                     interface  src/types/database.ts:1295:18          
+GiftCardStatus                 type       src/types/database.ts:1304:13          
+GiftCardTransactionType        type       src/types/database.ts:1305:13          
+GiftCardTheme                  type       src/types/database.ts:1306:13          
+EffectIntensity                type       src/types/database.ts:1307:13          
+GiftCardDesignConfig           interface  src/types/database.ts:1309:18          
+GiftCardTemplate               interface  src/types/database.ts:1318:18          
+GiftCardPriceTier              interface  src/types/database.ts:1334:18          
+GiftCard                       interface  src/types/database.ts:1344:18          
+GiftCardTransaction            interface  src/types/database.ts:1370:18          
+GiftCardTemplateWithTiers      interface  src/types/database.ts:1385:18          
+GiftCardWithDetails            interface  src/types/database.ts:1390:18          
+CreateGiftCardTemplateInput    interface  src/types/database.ts:1399:18          
+UpdateGiftCardTemplateInput    interface  src/types/database.ts:1411:18          
+CreateGiftCardPurchaseInput    interface  src/types/database.ts:1419:18          
+GiftCardRedemptionInput        interface  src/types/database.ts:1429:18          
+ResendAudience                 interface  src/types/resend.ts:3:18               
+ResendContact                  interface  src/types/resend.ts:9:18               
+ResendAudienceResponse         interface  src/types/resend.ts:18:18              
+ResendContactsResponse         interface  src/types/resend.ts:23:18              
+CachedContact                  interface  src/types/resend.ts:29:18              
+SyncStatsResponse              interface  src/types/resend.ts:43:18              

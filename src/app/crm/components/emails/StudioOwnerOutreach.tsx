@@ -68,7 +68,6 @@ export const StudioOwnerOutreach = ({
   </Html>
 );
 
-export default StudioOwnerOutreach;
 
 const main = {
   backgroundColor: "#ffffff",

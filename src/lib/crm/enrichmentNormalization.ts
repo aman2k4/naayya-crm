@@ -1,6 +1,6 @@
 import { normalizeBusinessType } from '@/lib/crm/enrichmentTaxonomy';
 
-export function standardizePhoneNumber(input: string | null | undefined): string {
+function standardizePhoneNumber(input: string | null | undefined): string {
   const raw = (input ?? '').trim();
   if (!raw) return '';
 
@@ -14,7 +14,7 @@ export function standardizePhoneNumber(input: string | null | undefined): string
   return (hasPlus ? '+' : '') + digits;
 }
 
-export function standardizeWebsite(input: string | null | undefined): string {
+function standardizeWebsite(input: string | null | undefined): string {
   const raw = (input ?? '').trim();
   if (!raw) return '';
 
@@ -43,7 +43,7 @@ export function standardizeWebsite(input: string | null | undefined): string {
   }
 }
 
-export function standardizeCountryCode(input: string | null | undefined): string {
+function standardizeCountryCode(input: string | null | undefined): string {
   const raw = (input ?? '').trim();
   if (!raw) return '';
   return raw.toUpperCase();
@@ -103,7 +103,7 @@ const US_STATE_NAME_TO_ABBR: Record<string, string> = {
   'district of columbia': 'DC',
 };
 
-export function standardizeState(input: string | null | undefined): string {
+function standardizeState(input: string | null | undefined): string {
   const raw = (input ?? '').trim();
   if (!raw) return '';
 

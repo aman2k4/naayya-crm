@@ -1,29 +1,5 @@
 import { z } from 'zod';
 
-// Teacher Cancellation Policy types
-export interface TeacherCancellationPolicy {
-  id: string;
-  studio_id: string;
-  teachers_can_cancel: boolean;
-  min_cancellation_hours: number;
-  max_enrollment_threshold: number | null;
-  require_admin_approval: boolean;
-  custom_message: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export const UserSchema = z.object({
-  id: z.string(),
-  email: z.string().email(),
-  created_at: z.string(),
-  app_metadata: z.object({
-    provider: z.string(),
-    providers: z.array(z.string()),
-  }),
-  user_metadata: z.record(z.string(), z.any()),
-  aud: z.string(),
-});
 
 export interface Class {
   id: string;
@@ -46,31 +22,6 @@ export interface Class {
 // Define and export AttendanceStatus type
 export type AttendanceStatus = 'pending' | 'attended' | 'no_show';
 
-// Archive Class Instance RPC Response Types
-export interface ArchiveClassInstanceBookingData {
-  booking_id: string;
-  profile_id: string;
-  profile_email: string;
-  subscription_id: string | null;
-  profile_credit_id: string | null;
-  class_instance_id: string;
-  booking_status: 'admin_cancelled' | 'user_cancelled' | 'cancelled' | 'confirmed';
-  cancellation_note: string | null;
-  cancellation_summary: string | null;
-  was_eligible_for_refund?: boolean | null;
-}
-
-export interface ArchiveClassInstanceResponse {
-  success: boolean;
-  error?: string;
-  error_detail?: string;
-  cancelled_bookings_count?: number;
-  bookings?: ArchiveClassInstanceBookingData[];
-  instance_id?: string;
-  studio_id?: string;
-  cancellation_note?: string | null;
-  cancellation_summary?: string | null;
-}
 
 export type Booking = {
   id: string;
@@ -228,100 +179,100 @@ export interface Product {
 }
 
 export interface ExtendedClassInstance {
+  id: string;
+  class_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'scheduled' | 'cancelled' | 'completed' | 'pending';
+  location_id: string;
+  teacher_id: string;
+  is_archived: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+  class: {
     id: string;
-    class_id: string;
-    start_time: string;
-    end_time: string;
-    status: 'scheduled' | 'cancelled' | 'completed' | 'pending';
-    location_id: string;
-    teacher_id: string;
-    is_archived: boolean;
-    archived_at: string | null;
+    name: string;
+    sub_heading: string | null;
+    description: string | null;
+    image_url: string | null;
+    price_display_text: string | null;
+    category: string | null;
+  };
+  teacher: {
+    id: string;
+    name: string;
     created_at: string;
-    updated_at: string | null;
-    class: {
-      id: string;
-      name: string;
-      sub_heading: string | null;
-      description: string | null;
-      image_url: string | null;
-      price_display_text: string | null;
-      category: string | null;
-    };
-    teacher: {
-      id: string;
-      name: string;
-      created_at: string;
-      user_id: string | null;
-      bio: string | null;
-      image_url: string | null;
-      studio_id: string;
-      primary_style: string | null;
-      instagram_handle: string | null;
-    };
-    location: {
-      name: string;
-      description: string;
-      created_at: string;
-      updated_at: string;
-      capacity: number;
-      timezone: string;
-      address_line_1?: string | null;
-      address_line_2?: string | null;
-      city?: string | null;
-      state?: string | null;
-      postal_code?: string | null;
-      country?: string | null;
-    };
+    user_id: string | null;
+    bio: string | null;
+    image_url: string | null;
     studio_id: string;
-    schedule_id?: string;
-    schedule?: {
+    primary_style: string | null;
+    instagram_handle: string | null;
+  };
+  location: {
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+    capacity: number;
+    timezone: string;
+    address_line_1?: string | null;
+    address_line_2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  };
+  studio_id: string;
+  schedule_id?: string;
+  schedule?: {
+    id: string;
+    created_at: string;
+    updated_at: string;
+    recurrence_rule: string | null;
+    start_datetime: string;
+    end_datetime: string;
+    recurrence_end: string | null;
+    description: string | null;
+  };
+  studio: Studio;
+  co_teachers?: ClassInstanceTeacherLink[];
+  bookings?: Array<{
+    id: string;
+    created_at: string;
+    booking_status: 'confirmed' | 'cancelled' | 'user_cancelled' | 'admin_cancelled';
+    // Use the exported type alias
+    attendance_status: AttendanceStatus;
+    booking_date: string | null;
+    studio_id: string;
+    profile_credit_id: string | null;
+    cancellation_note?: string | null;
+    cancelled_by?: string | null;
+    cancelled_at?: string | null;
+    was_eligible_for_refund?: boolean | null;
+    user_cancellation_note?: string | null;
+    notes?: string;
+    temporary_profile?: TemporaryProfile;
+    profile: {
       id: string;
-      created_at: string;
-      updated_at: string;
-      recurrence_rule: string | null;
-      start_datetime: string;
-      end_datetime: string;
-      recurrence_end: string | null;
-      description: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      email: string;
+      disclosures: { type: string; details: string; created_at: string }[] | null;
     };
-    studio: Studio;
-    co_teachers?: ClassInstanceTeacherLink[];
-    bookings?: Array<{
-        id: string;
-        created_at: string;
-        booking_status: 'confirmed' | 'cancelled' | 'user_cancelled' | 'admin_cancelled';
-        // Use the exported type alias
-        attendance_status: AttendanceStatus;
-        booking_date: string | null;
-        studio_id: string;
-        profile_credit_id: string | null;
-        cancellation_note?: string | null;
-        cancelled_by?: string | null;
-        cancelled_at?: string | null;
-        was_eligible_for_refund?: boolean | null;
-        user_cancellation_note?: string | null;
-        notes?: string;
-        temporary_profile?: TemporaryProfile;
-        profile: {
-          id: string;
-            first_name: string | null;
-            last_name: string | null;
-            email: string;
-            disclosures: { type: string; details: string; created_at: string }[] | null;
-        };
-        profile_credit?: {
-            id: string;
-            remaining_credits: number;
-            expiry_date: string | null;
-            product: {
-                display_name: string;
-                credits: number;
-                validity_period: number;
-            }
-        } | null;
-    }>;
-    booking_count?: number; // Optional count of confirmed bookings, populated by API when includeBookingCount=true
+    profile_credit?: {
+      id: string;
+      remaining_credits: number;
+      expiry_date: string | null;
+      product: {
+        display_name: string;
+        credits: number;
+        validity_period: number;
+      }
+    } | null;
+  }>;
+  booking_count?: number; // Optional count of confirmed bookings, populated by API when includeBookingCount=true
 }
 
 export interface ClassProduct {
@@ -551,7 +502,7 @@ export interface Studio {
   address: string | null;
   image_url: string | null;
   logo_url: string | null;
-  instagram_handle: string | null; 
+  instagram_handle: string | null;
   youtube_handle: string | null;
   substack_handle: string | null;
   website_url: string | null;
@@ -589,7 +540,7 @@ export interface StripeSessionMetadata {
 export interface UserRoleResponse {
   id: string;
   profile_id: string;
-  role: 'customer' | 'teacher' | 'manager' | 'owner' ;
+  role: 'customer' | 'teacher' | 'manager' | 'owner';
   studio_id: string;
   created_at: string;
   profile: {
@@ -852,17 +803,17 @@ export interface OrderWithDetails {
       country: string;
     };
   };
-  
+
   profile: {
     email: string;
     first_name: string | null;
     last_name: string | null;
   };
-  
+
   payment: {
     currency: string;
   };
-  
+
   order_items: Array<OrderItem>;
 }
 
@@ -1261,7 +1212,7 @@ export interface Subscription {
   studio_id: string;
   stripe_subscription_id?: string;
   status: 'pending' | 'incomplete' | 'trialing' | 'active' | 'past_due' | 'paused' | 'cancelled';
-  
+
   // Immutable snapshots
   snapshot_price: number;
   snapshot_currency: string;
@@ -1271,7 +1222,7 @@ export interface Subscription {
   snapshot_eligibility_type: 'everyone' | 'once_per_customer' | 'first_subscription_only';
   snapshot_product_display_name: string;
   snapshot_activation_type: 'immediate' | 'first_use' | 'scheduled';
-  
+
   // Dynamic fields
   current_period_start?: string;
   current_period_end?: string;

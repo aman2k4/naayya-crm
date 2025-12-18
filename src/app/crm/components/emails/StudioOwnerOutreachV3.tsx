@@ -73,7 +73,6 @@ export const StudioOwnerOutreachV3 = ({
   </Html>
 );
 
-export default StudioOwnerOutreachV3;
 
 const main = {
   backgroundColor: "#ffffff",

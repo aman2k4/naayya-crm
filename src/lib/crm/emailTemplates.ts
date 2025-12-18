@@ -1,25 +1,25 @@
 import React from "react";
 import { Lead } from "@/types/crm";
 import { render } from "@react-email/components";
-import MindbodyEnterpriseOfferV1 from "@/app/crm/components/emails/MindbodyEnterpriseOfferV1";
-import StudioOwnerOutreach from "@/app/crm/components/emails/StudioOwnerOutreach";
-import StudioOwnerOutreachV3 from "@/app/crm/components/emails/StudioOwnerOutreachV3";
-import StudioOwnerOutreachV4 from "@/app/crm/components/emails/StudioOwnerOutreachV4";
-import MindbodyPartnershipOutreach from "@/app/crm/components/emails/MindbodyPartnershipOutreach";
-import EversportsMigrationOutreach from "@/app/crm/components/emails/EversportsMigrationOutreach";
-import YogaMindbodyOutreachV1 from "@/app/crm/components/emails/YogaMindbodyOutreachV1";
-import YogaMindbodyOutreachV2 from "@/app/crm/components/emails/YogaMindbodyOutreachV2";
-import YogaMindbodyOutreachV3 from "@/app/crm/components/emails/YogaMindbodyOutreachV3";
-import YogaMindbodyOutreachV4 from "@/app/crm/components/emails/YogaMindbodyOutreachV4";
-import EversportsGenericOutreachV1 from "@/app/crm/components/emails/EversportsGenericOutreachV1";
-import EversportsOfferOutreachV1 from "@/app/crm/components/emails/EversportsOfferOutreachV1";
-import EversportsOfferOutreachV2 from "@/app/crm/components/emails/EversportsOfferOutreachV2";
-import GenericFollowUpV1 from "@/app/crm/components/emails/GenericFollowUpV1";
-import GenericFollowUpV2 from "@/app/crm/components/emails/GenericFollowUpV2";
-import MerrithewPilatesOutreachV1 from "@/app/crm/components/emails/MerrithewPilatesOutreachV1";
-import MerrithewPilatesOutreachV2 from "@/app/crm/components/emails/MerrithewPilatesOutreachV2";
-import EversportsSallyFollowUp from "@/app/crm/components/emails/EversportsSallyFollowUpV2";
-import EversportsSallyFollowUpDE from "@/app/crm/components/emails/EversportsSallyFollowUpDE";
+import { MindbodyEnterpriseOfferV1 } from "@/app/crm/components/emails/MindbodyEnterpriseOfferV1";
+import { StudioOwnerOutreach } from "@/app/crm/components/emails/StudioOwnerOutreach";
+import { StudioOwnerOutreachV3 } from "@/app/crm/components/emails/StudioOwnerOutreachV3";
+import { StudioOwnerOutreachV4 } from "@/app/crm/components/emails/StudioOwnerOutreachV4";
+import { MindbodyPartnershipOutreach } from "@/app/crm/components/emails/MindbodyPartnershipOutreach";
+import { EversportsMigrationOutreach } from "@/app/crm/components/emails/EversportsMigrationOutreach";
+import { YogaMindbodyOutreachV1 } from "@/app/crm/components/emails/YogaMindbodyOutreachV1";
+import { YogaMindbodyOutreachV2 } from "@/app/crm/components/emails/YogaMindbodyOutreachV2";
+import { YogaMindbodyOutreachV3 } from "@/app/crm/components/emails/YogaMindbodyOutreachV3";
+import { YogaMindbodyOutreachV4 } from "@/app/crm/components/emails/YogaMindbodyOutreachV4";
+import { EversportsGenericOutreachV1 } from "@/app/crm/components/emails/EversportsGenericOutreachV1";
+import { EversportsOfferOutreachV1 } from "@/app/crm/components/emails/EversportsOfferOutreachV1";
+import { EversportsOfferOutreachV2 } from "@/app/crm/components/emails/EversportsOfferOutreachV2";
+import { GenericFollowUpV1 } from "@/app/crm/components/emails/GenericFollowUpV1";
+import { GenericFollowUpV2 } from "@/app/crm/components/emails/GenericFollowUpV2";
+import { MerrithewPilatesOutreachV1 } from "@/app/crm/components/emails/MerrithewPilatesOutreachV1";
+import { MerrithewPilatesOutreachV2 } from "@/app/crm/components/emails/MerrithewPilatesOutreachV2";
+import { EversportsSallyFollowUpV2 as EversportsSallyFollowUp } from "@/app/crm/components/emails/EversportsSallyFollowUpV2";
+import { EversportsSallyFollowUpDE } from "@/app/crm/components/emails/EversportsSallyFollowUpDE";
 
 export type EmailTemplateCategory = "First Email" | "First Follow Up" | "Second Follow Up";
 
@@ -32,7 +32,7 @@ export interface EmailTemplate {
 }
 
 // Hardcoded email templates
-export const EMAIL_TEMPLATES: EmailTemplate[] = [
+const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: "template-1",
     name: "Template 1 - Mindbody Enterprise Offer (US) - 6 Months Free",

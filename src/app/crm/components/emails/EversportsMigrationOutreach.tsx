@@ -72,7 +72,6 @@ export const EversportsMigrationOutreach = ({
   </Html>
 );
 
-export default EversportsMigrationOutreach;
 
 // Plain Gmail-style formatting - minimal styling
 const main = {

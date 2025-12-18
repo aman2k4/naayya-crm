@@ -20,4 +20,3 @@ export const resolveCookieOptions = (overrides: CookieOptions = {}): CookieOptio
   }
 }
 
-export const COOKIE_MAX_AGE_SECONDS = DEFAULT_COOKIE_MAX_AGE

@@ -17,6 +17,22 @@ const RESPONSE_STATUS_MAP: Record<ResponseStatus, { label: string; color: string
   converted: { label: "Converted", color: "text-green-700" },
 };
 
+const EMAIL_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  clicked: { bg: "bg-purple-100", text: "text-purple-600" },
+  opened: { bg: "bg-blue-100", text: "text-blue-600" },
+  delivered: { bg: "bg-green-100", text: "text-green-600" },
+  sent: { bg: "bg-yellow-100", text: "text-yellow-600" },
+  bounced: { bg: "bg-red-100", text: "text-red-600" },
+  complained: { bg: "bg-orange-100", text: "text-orange-600" },
+  failed: { bg: "bg-red-100", text: "text-red-600" },
+  not_sent: { bg: "bg-gray-100", text: "text-gray-500" },
+};
+
+const getEmailStatusColors = (status?: string) => {
+  if (!status) return { bg: "bg-muted", text: "" };
+  return EMAIL_STATUS_COLORS[status] || { bg: "bg-muted", text: "" };
+};
+
 interface LeadsTableProps {
   leads: Lead[];
   emailStatus: Record<string, EmailStatus>;
@@ -191,7 +207,10 @@ function LeadRow({
 
       {/* Contact Group */}
       <td className="px-1.5 py-1 border-l border-border/30">
-        <CopyableCell value={lead.email} className="max-w-[130px]" />
+        <CopyableCell
+          value={lead.email}
+          className={`max-w-[130px] ${emailStatus?.status === 'bounced' ? 'text-red-600' : ''}`}
+        />
       </td>
       <td className="px-1.5 py-1">
         <span className="truncate block max-w-[80px]" title={lead.phone_number || ""}>
@@ -292,17 +311,22 @@ function LeadRow({
       </td>
       <td className="px-1.5 py-1">
         {emailStatus?.lastEventType && emailStatus?.lastEventTimestamp ? (
-          <div
-            className="flex flex-col leading-tight"
-            title={format(parseISO(emailStatus.lastEventTimestamp), "EEEE, MMMM d, yyyy 'at' h:mm a")}
-          >
-            <span className="text-[9px] font-mono bg-muted px-0.5 rounded w-fit">
-              {emailStatus.lastEventType.replace("email.", "").substring(0, 4)}
-            </span>
-            <span className="text-[9px] text-muted-foreground">
-              {format(parseISO(emailStatus.lastEventTimestamp), "MMM d")}
-            </span>
-          </div>
+          (() => {
+            const colors = getEmailStatusColors(emailStatus.status);
+            return (
+              <div
+                className="flex flex-col leading-tight"
+                title={format(parseISO(emailStatus.lastEventTimestamp), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+              >
+                <span className={`text-[9px] font-mono px-0.5 rounded w-fit ${colors.bg} ${colors.text}`}>
+                  {emailStatus.lastEventType.replace("email.", "").substring(0, 4)}
+                </span>
+                <span className="text-[9px] text-muted-foreground">
+                  {format(parseISO(emailStatus.lastEventTimestamp), "MMM d")}
+                </span>
+              </div>
+            );
+          })()
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
@@ -337,7 +361,14 @@ function LeadRow({
       {/* Actions */}
       <td className="px-1.5 py-1 border-l border-border/30">
         <div className="flex items-center gap-0.5">
-          <Button size="sm" variant="ghost" onClick={onGenerateEmail} className="h-5 w-5 p-0" title="Generate Email">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onGenerateEmail}
+            className="h-5 w-5 p-0"
+            title={emailStatus?.status === 'bounced' ? "Cannot send email - address bounced" : "Generate Email"}
+            disabled={emailStatus?.status === 'bounced'}
+          >
             <Mail className="w-3 h-3" />
           </Button>
           <Button size="sm" variant="ghost" onClick={onEnrich} className="h-5 w-5 p-0" title="Enrich">

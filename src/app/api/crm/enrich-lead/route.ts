@@ -11,6 +11,12 @@ import {
   normalizeForComparison,
   standardizeFieldForStorage,
 } from '@/lib/crm/enrichmentNormalization';
+import {
+  validateWebsite,
+  validateSocialUrl,
+  type WebsiteValidationResult,
+  type SocialValidationResult,
+} from '@/lib/crm/urlValidation';
 
 const searchFieldsSchema = z.array(z.enum(['studio_name', 'person_name', 'email', 'location', 'current_platform', 'additional_info'])).optional();
 
@@ -94,35 +100,6 @@ function safeExtractJsonObject(text: string): Record<string, unknown> | null {
     return JSON.parse(jsonMatch[0]) as Record<string, unknown>;
   } catch {
     return null;
-  }
-}
-
-async function validateWebsite(url: string): Promise<{ valid: boolean; status?: number; error?: string; finalUrl?: string }> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-    const response = await fetch(url, {
-      method: 'HEAD', // Just check headers, don't download body
-      signal: controller.signal,
-      redirect: 'follow',
-    });
-
-    clearTimeout(timeout);
-
-    return {
-      valid: response.ok,
-      status: response.status,
-      finalUrl: response.url !== url ? response.url : undefined,
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        return { valid: false, error: 'timeout' };
-      }
-      return { valid: false, error: error.message };
-    }
-    return { valid: false, error: 'unknown error' };
   }
 }
 
@@ -421,13 +398,6 @@ IMPORTANT:
   };
 }
 
-interface WebsiteStatus {
-  valid: boolean;
-  status?: number;
-  error?: string;
-  finalUrl?: string;
-}
-
 interface ProviderResult {
   provider: 'gemini' | 'perplexity';
   found: Record<string, string>;
@@ -435,7 +405,9 @@ interface ProviderResult {
   conflicts: Array<{ field: string; current: string; found: string }>;
   sources: string[];
   rawResponse: string;
-  websiteStatus?: WebsiteStatus;
+  websiteStatus?: WebsiteValidationResult;
+  instagramStatus?: SocialValidationResult;
+  facebookStatus?: SocialValidationResult;
   error?: string;
 }
 
@@ -589,7 +561,7 @@ IMPORTANT:
     console.log(`🤖 [Enrich/Gemini] Found ${Object.keys(found).length} fields:`, Object.keys(found));
 
     // Validate website if found
-    let websiteStatus: WebsiteStatus | undefined;
+    let websiteStatus: WebsiteValidationResult | undefined;
     if (found.website) {
       console.log(`🌐 [Enrich/Gemini] Validating website: ${found.website}`);
       websiteStatus = await validateWebsite(found.website);
@@ -597,6 +569,30 @@ IMPORTANT:
         console.log(`✅ [Enrich/Gemini] Website valid (${websiteStatus.status})${websiteStatus.finalUrl ? ` -> ${websiteStatus.finalUrl}` : ''}`);
       } else {
         console.log(`❌ [Enrich/Gemini] Website invalid: ${websiteStatus.error || `status ${websiteStatus.status}`}`);
+      }
+    }
+
+    // Validate Instagram if found
+    let instagramStatus: SocialValidationResult | undefined;
+    if (found.instagram) {
+      console.log(`📸 [Enrich/Gemini] Validating Instagram: ${found.instagram}`);
+      instagramStatus = await validateSocialUrl(found.instagram, 'instagram');
+      if (instagramStatus.valid) {
+        console.log(`✅ [Enrich/Gemini] Instagram valid`);
+      } else {
+        console.log(`❌ [Enrich/Gemini] Instagram invalid: ${instagramStatus.error}`);
+      }
+    }
+
+    // Validate Facebook if found
+    let facebookStatus: SocialValidationResult | undefined;
+    if (found.facebook) {
+      console.log(`📘 [Enrich/Gemini] Validating Facebook: ${found.facebook}`);
+      facebookStatus = await validateSocialUrl(found.facebook, 'facebook');
+      if (facebookStatus.valid) {
+        console.log(`✅ [Enrich/Gemini] Facebook valid`);
+      } else {
+        console.log(`❌ [Enrich/Gemini] Facebook invalid: ${facebookStatus.error}`);
       }
     }
 
@@ -608,6 +604,8 @@ IMPORTANT:
       sources: filterValidUrls(sourceUrls),
       rawResponse: text,
       websiteStatus,
+      instagramStatus,
+      facebookStatus,
     };
   })();
 
@@ -627,7 +625,7 @@ IMPORTANT:
     console.log(`🔮 [Enrich/Perplexity] Found ${Object.keys(found).length} fields:`, Object.keys(found));
 
     // Validate website if found
-    let websiteStatus: WebsiteStatus | undefined;
+    let websiteStatus: WebsiteValidationResult | undefined;
     if (found.website) {
       console.log(`🌐 [Enrich/Perplexity] Validating website: ${found.website}`);
       websiteStatus = await validateWebsite(found.website);
@@ -635,6 +633,30 @@ IMPORTANT:
         console.log(`✅ [Enrich/Perplexity] Website valid (${websiteStatus.status})${websiteStatus.finalUrl ? ` -> ${websiteStatus.finalUrl}` : ''}`);
       } else {
         console.log(`❌ [Enrich/Perplexity] Website invalid: ${websiteStatus.error || `status ${websiteStatus.status}`}`);
+      }
+    }
+
+    // Validate Instagram if found
+    let instagramStatus: SocialValidationResult | undefined;
+    if (found.instagram) {
+      console.log(`📸 [Enrich/Perplexity] Validating Instagram: ${found.instagram}`);
+      instagramStatus = await validateSocialUrl(found.instagram, 'instagram');
+      if (instagramStatus.valid) {
+        console.log(`✅ [Enrich/Perplexity] Instagram valid`);
+      } else {
+        console.log(`❌ [Enrich/Perplexity] Instagram invalid: ${instagramStatus.error}`);
+      }
+    }
+
+    // Validate Facebook if found
+    let facebookStatus: SocialValidationResult | undefined;
+    if (found.facebook) {
+      console.log(`📘 [Enrich/Perplexity] Validating Facebook: ${found.facebook}`);
+      facebookStatus = await validateSocialUrl(found.facebook, 'facebook');
+      if (facebookStatus.valid) {
+        console.log(`✅ [Enrich/Perplexity] Facebook valid`);
+      } else {
+        console.log(`❌ [Enrich/Perplexity] Facebook invalid: ${facebookStatus.error}`);
       }
     }
 
@@ -646,6 +668,8 @@ IMPORTANT:
       sources: citations,
       rawResponse: text,
       websiteStatus,
+      instagramStatus,
+      facebookStatus,
     };
   })();
 

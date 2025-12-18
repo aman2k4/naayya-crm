@@ -5,6 +5,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { streamText } from 'ai';
 import { z } from 'zod';
 import { AI_MODELS } from '@/lib/crm/aiModelsConfig';
+import { isSocialUrlValid } from '@/lib/crm/urlValidation';
 
 const requestSchema = z.object({
   leadId: z.string().uuid('Invalid lead ID'),
@@ -99,25 +100,34 @@ export async function POST(request: NextRequest) {
     if (lead.current_platform) leadContext.current_platform = lead.current_platform;
     if (lead.business_type) leadContext.business_type = lead.business_type;
     if (lead.website) leadContext.website = lead.website;
-    if (lead.instagram) leadContext.instagram = lead.instagram;
-    if (lead.facebook) leadContext.facebook = lead.facebook;
     if (lead.classes_per_week_estimate) leadContext.classes_per_week_estimate = lead.classes_per_week_estimate;
     if (lead.instructors_count_estimate) leadContext.instructors_count_estimate = lead.instructors_count_estimate;
     if (lead.additional_info) leadContext.additional_info = lead.additional_info;
     if (lead.notes) leadContext.notes = lead.notes;
 
-    // Currency mapping by country code
+    // Validate Instagram and Facebook URLs before including them
+    // Run validations in parallel
+    const [instagramValid, facebookValid] = await Promise.all([
+      lead.instagram ? isSocialUrlValid(lead.instagram, 'instagram') : Promise.resolve(false),
+      lead.facebook ? isSocialUrlValid(lead.facebook, 'facebook') : Promise.resolve(false),
+    ]);
+
+    if (lead.instagram && instagramValid) {
+      leadContext.instagram = lead.instagram;
+    }
+    if (lead.facebook && facebookValid) {
+      leadContext.facebook = lead.facebook;
+    }
+
+    // Currency mapping by country code for context
     const CURRENCY_MAP: Record<string, { symbol: string; avgRevenuePerClass: number; nayyaProMonthly: number }> = {
-      // Dollar countries
       US: { symbol: '$', avgRevenuePerClass: 35, nayyaProMonthly: 200 },
       AU: { symbol: 'A$', avgRevenuePerClass: 40, nayyaProMonthly: 300 },
       CA: { symbol: 'C$', avgRevenuePerClass: 35, nayyaProMonthly: 270 },
       NZ: { symbol: 'NZ$', avgRevenuePerClass: 35, nayyaProMonthly: 320 },
       SG: { symbol: 'S$', avgRevenuePerClass: 40, nayyaProMonthly: 270 },
       HK: { symbol: 'HK$', avgRevenuePerClass: 300, nayyaProMonthly: 1560 },
-      // Pound
       GB: { symbol: '£', avgRevenuePerClass: 25, nayyaProMonthly: 160 },
-      // Euro countries (default)
       DE: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
       FR: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
       IT: { symbol: '€', avgRevenuePerClass: 25, nayyaProMonthly: 200 },
@@ -128,7 +138,6 @@ export async function POST(request: NextRequest) {
       IE: { symbol: '€', avgRevenuePerClass: 30, nayyaProMonthly: 200 },
       PT: { symbol: '€', avgRevenuePerClass: 20, nayyaProMonthly: 200 },
       LU: { symbol: '€', avgRevenuePerClass: 35, nayyaProMonthly: 200 },
-      // Other
       CH: { symbol: 'CHF', avgRevenuePerClass: 40, nayyaProMonthly: 220 },
       JP: { symbol: '¥', avgRevenuePerClass: 3500, nayyaProMonthly: 30000 },
       IN: { symbol: '₹', avgRevenuePerClass: 800, nayyaProMonthly: 5000 },
@@ -140,87 +149,138 @@ export async function POST(request: NextRequest) {
     const avgRevenuePerClass = currencyConfig.avgRevenuePerClass;
     const nayyaProMonthly = currencyConfig.nayyaProMonthly;
 
-    // Get data or use reasonable defaults
     const classesPerWeek = (leadContext.classes_per_week_estimate as number) || 10;
     const instructors = (leadContext.instructors_count_estimate as number) || 0;
 
-    // Calculate rough savings
+    // Calculate potential value (for AI context, not to be stated directly)
     const weeklyRevenue = classesPerWeek * avgRevenuePerClass;
     const monthlyRevenue = Math.round(weeklyRevenue * 4.3);
     const yearlyRevenue = monthlyRevenue * 12;
-
-    // Transaction fee savings: competitors 4-5%, Naayya 2.5% = ~2% savings
     const transactionFeeSavingsYearly = Math.round(yearlyRevenue * 0.02);
-
-    // 12 months free Naayya Pro
     const nayyaProSavings = nayyaProMonthly * 12;
-
-    // Total first year savings
     const totalYearlySavings = transactionFeeSavingsYearly + nayyaProSavings;
-
-    // Round to nice number
     const roundedSavings = Math.round(totalYearlySavings / 500) * 500;
-    const savingsDisplay = `${currency}${roundedSavings.toLocaleString()}+`;
 
     // Build what Sally researched based on available data
     const researchedItems: string[] = [];
     if (leadContext.website) researchedItems.push('their website');
     if (leadContext.instagram) researchedItems.push('their Instagram');
     if (leadContext.facebook) researchedItems.push('their Facebook');
-    if (leadContext.current_platform) researchedItems.push(`noticed they use ${leadContext.current_platform} for bookings`);
+    if (leadContext.current_platform) researchedItems.push(`noticed they use ${leadContext.current_platform}`);
 
     const researchSummary = researchedItems.length > 0
       ? `You checked out ${researchedItems.slice(0, -1).join(', ')}${researchedItems.length > 1 ? ' and ' : ''}${researchedItems[researchedItems.length - 1]}.`
       : 'You looked into their studio.';
 
-    // Build prompt with lead context
-    const prompt = `You are Sally Grüneisen, co-founder of Naayya. You've spent time researching this studio.
+    // Build prompt with lead context - optimized for email deliverability
+    const prompt = `You are Sally Grüneisen, co-founder of Naayya, writing a warm personal email to a studio owner.
 
 ${researchSummary}
 
-Here's what you know about them:
-
+LEAD DATA:
 ${JSON.stringify(leadContext, null, 2)}
 
-Write a SHORT cold email (4-6 lines max, not including signature) that feels like you genuinely researched them.
+---
 
-IMPORTANT - Only reference what you actually have data for:
-${leadContext.website ? `- You visited their website (${leadContext.website})` : ''}
-${leadContext.instagram ? `- You scrolled their Instagram (${leadContext.instagram})` : ''}
-${leadContext.facebook ? `- You checked their Facebook (${leadContext.facebook})` : ''}
-${leadContext.current_platform ? `- You noticed they use ${leadContext.current_platform} for bookings` : ''}
-${leadContext.classes_per_week_estimate ? `- You saw they run about ${classesPerWeek} classes/week` : ''}
-${instructors ? `- They have around ${instructors} instructors` : ''}
-${leadContext.additional_info ? `- Additional context: ${leadContext.additional_info}` : ''}
+WHO YOU'RE WRITING TO:
+These are health & wellness studio owners - yoga, pilates, fitness, dance, etc. They're warm, community-oriented people who care deeply about their students and their craft. They're NOT tech people. Write like you're reaching out to a fellow studio owner you admire, not like a business email. Be genuinely friendly and human.
 
-Do NOT make up information you don't have. Only mention what's listed above.
+TONE:
+- Warm and personable, like messaging a friend
+- Genuinely enthusiastic when you notice something you like about their studio
+- Conversational, not corporate or salesy
+- Brief but not cold - every word counts, but don't sound robotic
+- Think: friendly text message, not LinkedIn pitch
 
-What to convey:
-- You genuinely looked into them using the info above
-- ${leadContext.current_platform ? `Switching from ${leadContext.current_platform} to Naayya could save them ~${savingsDisplay} in year one` : `Switching to Naayya could save them ~${savingsDisplay} in year one`}
-- Frame numbers as your observation: "looks like you run about ${classesPerWeek} classes a week - switching could save you around ${savingsDisplay}"
-- Naayya isn't just cheaper - it's better for community-focused studios (growth tools, member retention)
-- Offer: 12 months of Naayya Pro free
+---
 
-Background on Sally Grüneisen (use only if it fits naturally):
-- She's run her own studio for 7 years
+PERSONALIZATION - USE THESE TO SHOW YOU DID YOUR HOMEWORK:
 
-CTA: Keep it casual and human, like writing to a friend. Examples:
-- "If you're curious, I'd love to show you around - just reply to this email"
-- "Happy to walk you through it if you're interested - just hit reply"
-- "Would love to show you how it works - reply and we can chat"
-Don't be salesy. Just a friendly offer to show them.
+${leadContext.website ? `WEBSITE: You visited ${leadContext.website} - mention something you genuinely liked (their class variety, the vibe, how they describe their community, etc.)` : ''}
+${leadContext.instagram || leadContext.facebook ? `SOCIALS: You scrolled their ${[leadContext.instagram ? 'Instagram' : '', leadContext.facebook ? 'Facebook' : ''].filter(Boolean).join(' and ')} - maybe you loved their community posts, saw a cool class, noticed their energy. Say "checked out your Instagram" or "love what you're sharing" naturally.` : ''}
+${leadContext.current_platform ? `CURRENT PLATFORM: They use ${leadContext.current_platform} - you can mention you noticed this and gently hint there might be something better suited for them.` : ''}
+${leadContext.classes_per_week_estimate ? `CLASS VOLUME: ~${classesPerWeek} classes/week - USE THIS! Say something like "looks like you're running around ${classesPerWeek} classes a week" - shows you actually looked into their studio.` : ''}
+${instructors ? `TEAM SIZE: ${instructors} instructors - great detail to weave in, shows you understand their scale.` : ''}
+${leadContext.city ? `LOCATION: ${leadContext.city}${leadContext.state ? `, ${leadContext.state}` : ''}${leadContext.country_code ? ` (${leadContext.country_code})` : ''} - can mention their city warmly.` : ''}
+${leadContext.business_type ? `BUSINESS TYPE: ${leadContext.business_type} - tailor your language to their specific world (yoga vs pilates vs fitness, etc.)` : ''}
+${leadContext.additional_info ? `EXTRA NOTES: ${leadContext.additional_info}` : ''}
 
-Guidelines:
-- EVERY mention of "Naayya" must be hyperlinked: <a href="https://naayya.com">Naayya</a>
-- Sound like you actually researched them
-- BREVITY - every word must earn its place
-- Don't always open the same way
-- End with: "Sally Grüneisen\\nCo-founder, <a href="https://naayya.com">Naayya.com</a>"
+BACK-OF-ENVELOPE VALUE (know this, hint at it warmly):
+- With ~${classesPerWeek} classes/week${instructors ? ` and ${instructors} instructors` : ''}, they could benefit meaningfully
+- Potential first-year value: ~${currency}${roundedSavings.toLocaleString()} (lower fees + included features)
+- ${leadContext.current_platform ? `${leadContext.current_platform} typically charges more than Naayya` : 'Most platforms charge 4-5% vs Naayya at 2.5%'}
+
+HOW TO HINT AT VALUE (without sounding like spam):
+- "with ${classesPerWeek} classes a week, those platform fees really add up"
+- "for a studio your size, switching could make a real difference"
+- "we've helped studios like yours keep more of what they earn"
+- Let them be curious - specifics come in the reply
+
+SALLY'S STORY (use naturally if it fits):
+- Ran her own yoga studio for 7 years - she gets it
+- Built Naayya because she was frustrated with the tools out there
+
+---
+
+DELIVERABILITY (critical for inbox, not promotions):
+
+1. ONE LINK - signature only. No links in body.
+
+2. AVOID these spam triggers:
+   "save [amount]", "free", "offer", "discount", "guarantee", "limited time",
+   "act now", "special", "exclusive", "no cost", "click here", "opportunity"
+
+3. LENGTH: 3-4 warm sentences, then signature. Short but not cold.
+
+4. GOAL: Start a conversation. Spark curiosity. Get a reply.
+
+5. PLAIN TEXT: No formatting, bullets, or bold. Just natural writing.
+
+---
+
+STRUCTURE:
+
+Sentence 1: Show you actually looked at their studio - be specific and warm
+- Mention their name, something from their site/socials, class count, location
+- Sound genuinely interested, not like you're checking boxes
+
+Sentence 2: Why you're reaching out - connect to value without numbers
+- Bridge from what you noticed to how Naayya might help
+- Keep it conversational
+
+Sentence 3: Friendly, low-pressure invitation to chat
+- Make it easy to say yes
+
+Signature:
+Sally Grüneisen
+Co-founder, <a href="https://naayya.com">Naayya</a>
+
+---
+
+GOOD EXAMPLES (warm, personal, brief):
+
+"Hey! Was checking out ${leadContext.studio_name || '[studio]'} - love what you're doing${leadContext.classes_per_week_estimate ? `, and ${classesPerWeek} classes a week is no joke` : ''}. I ran a studio for years before building Naayya, and I think it could be a really good fit for you. Would you be up for a quick look?"
+
+"Came across your ${leadContext.instagram ? 'Instagram' : 'studio'} and had to reach out - ${leadContext.city ? `love seeing studios like yours in ${leadContext.city}` : 'really like what you\'re building'}. We made Naayya specifically for studios like yours, and I'd love to show you around if you're curious!"
+
+"Hi ${leadContext.first_name || 'there'}! Noticed you're ${leadContext.current_platform ? `on ${leadContext.current_platform}` : 'running a beautiful studio'}${leadContext.classes_per_week_estimate ? ` with around ${classesPerWeek} classes a week` : ''}. There might be a simpler (and more affordable) way - happy to share more if you're interested?"
+
+BAD EXAMPLES (avoid):
+- "Save ${currency}2,500+ this year!" (spam trigger)
+- "I'm offering you 12 months free..." (promotional)
+- "Dear Studio Owner..." (cold, generic)
+- Dry, corporate tone without warmth
+- Multiple links
+
+---
 
 Return JSON only: { "subject": "...", "body": "..." }
-- Subject: Short, specific to them
-- Body: Use \\n for line breaks. EVERY "Naayya" must be <a href="https://naayya.com">Naayya</a>. No markdown. Keep it simple.`;
+
+Subject: Short, warm, personal
+- Good: "Love what you're doing at [studio]", "Fellow studio owner here", "Quick hello from ${leadContext.city || 'a yoga person'}"
+- Bad: "Save money on booking fees", "Business opportunity"
+
+Body: Plain text, \\n for line breaks, NO links except signature`;
 
     // Check OpenRouter API key
     if (!process.env.OPENROUTER_API_KEY) {

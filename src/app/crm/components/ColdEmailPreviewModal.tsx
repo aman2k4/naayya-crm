@@ -259,7 +259,7 @@ export function ColdEmailPreviewModal({ lead, onClose }: ColdEmailPreviewModalPr
 
   return (
     <Dialog open={!!lead} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] w-[1100px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] w-[1400px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-1 shrink-0">
           <DialogTitle className="text-sm">Cold Email for {contactName}</DialogTitle>
         </DialogHeader>

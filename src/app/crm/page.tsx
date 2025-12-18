@@ -41,6 +41,7 @@ import {
   X,
   Download,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import EditLeadDialog from "./components/EditLeadDialog";
 import EnrichLeadModal from "./components/EnrichLeadModal";
 import BulkEnrichmentReviewModal from "./components/BulkEnrichmentReviewModal";
@@ -825,12 +826,12 @@ function CRMDashboardContent() {
     );
   };
 
-  const handleLastEmailRangeChange = (type: "from" | "to", value: string) => {
-    const nextFrom = type === "from" ? value : lastEmailFrom;
-    const nextTo = type === "to" ? value : lastEmailTo;
-
-    setLastEmailFrom(nextFrom);
-    setLastEmailTo(nextTo);
+  const applyLastEmailRange = (
+    fromValue: string = lastEmailFrom,
+    toValue: string = lastEmailTo
+  ) => {
+    setLastEmailFrom(fromValue);
+    setLastEmailTo(toValue);
     setCurrentPage(1);
 
     // Clear selections when filters change
@@ -839,8 +840,8 @@ function CRMDashboardContent() {
     setAllFilteredLeads([]);
 
     updateURL({
-      lastEmailFrom: nextFrom,
-      lastEmailTo: nextTo,
+      lastEmailFrom: fromValue,
+      lastEmailTo: toValue,
       page: 1,
     });
 
@@ -858,21 +859,25 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      nextFrom,
-      nextTo
+      fromValue,
+      toValue
     );
   };
 
-  const handleEmailsSentRangeChange = (
+  const handleEmailsSentRangeInput = (
     type: "min" | "max",
     value: string
   ) => {
-    const nextMin = type === "min" ? value : minEmailsSent;
-    const nextMax = type === "max" ? value : maxEmailsSent;
+    if (type === "min") {
+      setMinEmailsSent(value);
+      setEverEmailedOnly(value.trim() === "1" && maxEmailsSent.trim() === "");
+    } else {
+      setMaxEmailsSent(value);
+      setEverEmailedOnly(minEmailsSent.trim() === "1" && value.trim() === "");
+    }
+  };
 
-    setMinEmailsSent(nextMin);
-    setMaxEmailsSent(nextMax);
-    setEverEmailedOnly(nextMin.trim() === "1" && nextMax.trim() === "");
+  const applyEmailsSentRange = () => {
     setCurrentPage(1);
 
     setSelectedLeads(new Set());
@@ -880,8 +885,8 @@ function CRMDashboardContent() {
     setAllFilteredLeads([]);
 
     updateURL({
-      minEmailsSent: nextMin,
-      maxEmailsSent: nextMax,
+      minEmailsSent: minEmailsSent,
+      maxEmailsSent: maxEmailsSent,
       page: 1,
     });
 
@@ -901,8 +906,8 @@ function CRMDashboardContent() {
       apiSource,
       lastEmailFrom,
       lastEmailTo,
-      nextMin,
-      nextMax
+      minEmailsSent,
+      maxEmailsSent
     );
   };
 
@@ -1451,20 +1456,18 @@ function CRMDashboardContent() {
         </Select>
 
         <div className="flex items-center gap-1.5">
-          <Input
-            type="date"
+          <DatePicker
             value={lastEmailFrom}
-            onChange={(e) => handleLastEmailRangeChange("from", e.target.value)}
-            className="h-8 w-[130px] text-xs bg-background"
+            onChange={(value) => applyLastEmailRange(value, lastEmailTo)}
             placeholder="From"
+            className="h-8 w-[130px] text-xs"
           />
           <span className="text-xs text-muted-foreground">to</span>
-          <Input
-            type="date"
+          <DatePicker
             value={lastEmailTo}
-            onChange={(e) => handleLastEmailRangeChange("to", e.target.value)}
-            className="h-8 w-[130px] text-xs bg-background"
+            onChange={(value) => applyLastEmailRange(lastEmailFrom, value)}
             placeholder="To"
+            className="h-8 w-[130px] text-xs"
           />
         </div>
 
@@ -1473,7 +1476,9 @@ function CRMDashboardContent() {
             type="number"
             min={0}
             value={minEmailsSent}
-            onChange={(e) => handleEmailsSentRangeChange("min", e.target.value)}
+            onChange={(e) => handleEmailsSentRangeInput("min", e.target.value)}
+            onBlur={applyEmailsSentRange}
+            onKeyDown={(e) => e.key === "Enter" && applyEmailsSentRange()}
             className="h-8 w-16 text-xs bg-background"
             placeholder="Min"
           />
@@ -1482,7 +1487,9 @@ function CRMDashboardContent() {
             type="number"
             min={0}
             value={maxEmailsSent}
-            onChange={(e) => handleEmailsSentRangeChange("max", e.target.value)}
+            onChange={(e) => handleEmailsSentRangeInput("max", e.target.value)}
+            onBlur={applyEmailsSentRange}
+            onKeyDown={(e) => e.key === "Enter" && applyEmailsSentRange()}
             className="h-8 w-16 text-xs bg-background"
             placeholder="Max"
           />

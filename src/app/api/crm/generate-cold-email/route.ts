@@ -1,20 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { isUserGlobalAdmin } from '@/utils/permissions';
-import { OpenRouter } from '@openrouter/sdk';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
 import { z } from 'zod';
+import { AI_MODELS } from '@/lib/crm/aiModelsConfig';
 
 const requestSchema = z.object({
   leadId: z.string().uuid('Invalid lead ID'),
 });
-
-// All models via OpenRouter
-const MODELS = [
-  { id: 'chatgpt-4o', name: 'ChatGPT-4o', modelId: 'openai/chatgpt-4o-latest' },
-  { id: 'gemini-3-pro', name: 'Gemini 3 Pro', modelId: 'google/gemini-3-pro-preview' },
-  { id: 'claude-opus', name: 'Claude Opus 4.5', modelId: 'anthropic/claude-opus-4.5' },
-  { id: 'kimi-k2', name: 'Kimi K2', modelId: 'moonshotai/kimi-k2' },
-];
 
 function safeExtractJsonObject(text: string): { subject?: string; body?: string } | null {
   const trimmed = text.trim();
@@ -46,22 +40,31 @@ export async function POST(request: NextRequest) {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const isGlobalAdmin = await isUserGlobalAdmin(supabase, user.id);
     if (!isGlobalAdmin) {
-      return NextResponse.json({ error: 'Forbidden - Global admin access required' }, { status: 403 });
+      return new Response(JSON.stringify({ error: 'Forbidden - Global admin access required' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const body = await request.json();
     const validation = requestSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         error: 'Validation failed',
         details: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
-      }, { status: 400 });
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const { leadId } = validation.data;
@@ -74,10 +77,13 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (leadError || !lead) {
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         error: 'Lead not found',
         details: leadError?.message || 'Lead not found'
-      }, { status: 404 });
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Build context object with only the fields that have values
@@ -168,7 +174,7 @@ export async function POST(request: NextRequest) {
       : 'You looked into their studio.';
 
     // Build prompt with lead context
-    const prompt = `You are Sally Gruniesen, co-founder of Naayya. You've spent time researching this studio.
+    const prompt = `You are Sally Grüneisen, co-founder of Naayya. You've spent time researching this studio.
 
 ${researchSummary}
 
@@ -196,7 +202,7 @@ What to convey:
 - Naayya isn't just cheaper - it's better for community-focused studios (growth tools, member retention)
 - Offer: 12 months of Naayya Pro free
 
-Background on Sally (use only if it fits naturally):
+Background on Sally Grüneisen (use only if it fits naturally):
 - She's run her own studio for 7 years
 
 CTA: Keep it casual and human, like writing to a friend. Examples:
@@ -210,7 +216,7 @@ Guidelines:
 - Sound like you actually researched them
 - BREVITY - every word must earn its place
 - Don't always open the same way
-- End with: "Sally\\nCo-founder, <a href="https://naayya.com">Naayya.com</a>"
+- End with: "Sally Grüneisen\\nCo-founder, <a href="https://naayya.com">Naayya.com</a>"
 
 Return JSON only: { "subject": "...", "body": "..." }
 - Subject: Short, specific to them
@@ -218,120 +224,123 @@ Return JSON only: { "subject": "...", "body": "..." }
 
     // Check OpenRouter API key
     if (!process.env.OPENROUTER_API_KEY) {
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         error: 'Configuration error',
         details: 'OPENROUTER_API_KEY is not configured'
-      }, { status: 500 });
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Initialize OpenRouter client
-    const openRouter = new OpenRouter({
+    // Initialize OpenRouter provider for Vercel AI SDK
+    const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,
     });
 
-    // Generate emails from all models in parallel
-    const modelResults = await Promise.allSettled(
-      MODELS.map(async (modelConfig) => {
-        const startTime = Date.now();
+    // Create a readable stream that sends results as each model completes
+    const encoder = new TextEncoder();
 
-        try {
-          const completion = await openRouter.chat.send({
-            model: modelConfig.modelId,
-            messages: [
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-            stream: false,
-          });
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Send initial context
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'context', data: leadContext })}\n\n`));
 
-          const content = completion.choices?.[0]?.message?.content;
-          let text: string;
+        // Run all models in parallel, streaming each result as it completes
+        const modelPromises = AI_MODELS.map(async (modelConfig) => {
+          const startTime = Date.now();
 
-          // Content can be string or array of content items
-          if (typeof content === 'string') {
-            text = content;
-          } else if (Array.isArray(content)) {
-            text = content
-              .filter((item): item is { type: 'text'; text: string } =>
-                typeof item === 'object' && item !== null && 'type' in item && item.type === 'text'
-              )
-              .map(item => item.text)
-              .join('');
-          } else {
-            text = '';
-          }
+          try {
+            const response = streamText({
+              model: openrouter(modelConfig.modelId),
+              prompt,
+            });
 
-          const parsed = safeExtractJsonObject(text);
-          const duration = Date.now() - startTime;
+            // Consume the full response
+            const text = await response.text;
+            const duration = Date.now() - startTime;
 
-          if (!parsed || !parsed.subject || !parsed.body) {
-            return {
-              modelId: modelConfig.id,
-              modelName: modelConfig.name,
-              success: false,
-              error: 'Failed to parse response',
-              duration,
+            const parsed = safeExtractJsonObject(text);
+
+            if (!parsed || !parsed.subject || !parsed.body) {
+              const result = {
+                type: 'result',
+                data: {
+                  modelId: modelConfig.id,
+                  modelName: modelConfig.name,
+                  success: false,
+                  error: 'Failed to parse response',
+                  duration,
+                }
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(result)}\n\n`));
+              return;
+            }
+
+            const result = {
+              type: 'result',
+              data: {
+                modelId: modelConfig.id,
+                modelName: modelConfig.name,
+                success: true,
+                subject: parsed.subject,
+                body: parsed.body,
+                duration,
+              }
             };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(result)}\n\n`));
+          } catch (err) {
+            const result = {
+              type: 'result',
+              data: {
+                modelId: modelConfig.id,
+                modelName: modelConfig.name,
+                success: false,
+                error: err instanceof Error ? err.message : 'Unknown error',
+                duration: Date.now() - startTime,
+              }
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(result)}\n\n`));
           }
+        });
 
-          return {
-            modelId: modelConfig.id,
-            modelName: modelConfig.name,
-            success: true,
-            subject: parsed.subject,
-            body: parsed.body,
-            duration,
-          };
-        } catch (err) {
-          return {
-            modelId: modelConfig.id,
-            modelName: modelConfig.name,
-            success: false,
-            error: err instanceof Error ? err.message : 'Unknown error',
-            duration: Date.now() - startTime,
-          };
-        }
-      })
-    );
+        // Wait for all models to complete
+        await Promise.all(modelPromises);
 
-    // Process results
-    const results = modelResults.map((result, index) => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-      return {
-        modelId: MODELS[index].id,
-        modelName: MODELS[index].name,
-        success: false,
-        error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
-        duration: 0,
-      };
+        // Send done signal
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+        controller.close();
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        results,
-        context: leadContext,
-      }
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
 
   } catch (error: unknown) {
     console.error('Error in generate-cold-email API:', error);
 
     if (error instanceof Error && error.message.includes('429')) {
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         error: 'Rate limit exceeded',
         details: 'Please wait a moment before trying again'
-      }, { status: 429 });
+      }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: false,
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }

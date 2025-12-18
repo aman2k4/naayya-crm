@@ -9,7 +9,7 @@ export interface EmailSender {
 }
 
 export const EMAIL_SENDERS: EmailSender[] = [
-  { id: "sally", name: "Sally", fromEmail: "sally@email.naayya.com", replyToEmail: "sally@naayya.com" },
+  { id: "sally", name: "Sally Grüneisen", fromEmail: "sally@email.naayya.com", replyToEmail: "sally@naayya.com" },
   { id: "aman", name: "Aman", fromEmail: "aman@email.naayya.com", replyToEmail: "aman@naayya.com" },
 ];
 

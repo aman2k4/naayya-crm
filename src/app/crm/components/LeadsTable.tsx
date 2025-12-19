@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CopyableCell } from "@/components/ui/copyable-cell";
 import { Lead, ResponseStatus } from "@/types/crm";
 import { type EmailStatus } from "@/lib/crm/emailStatusHelpers";
+import { getCountryName } from "@/utils/countries";
 import { Pencil, Sparkles, Info, Mail } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -100,7 +101,7 @@ export function LeadsTable({
           {/* Location Group */}
           <th className="px-1.5 py-1.5 w-[70px] font-medium border-l border-border/30">City</th>
           <th className="px-1.5 py-1.5 w-[50px] font-medium">St</th>
-          <th className="px-1.5 py-1.5 w-[30px] font-medium">CC</th>
+          <th className="px-1.5 py-1.5 w-[70px] font-medium">Country</th>
 
           {/* Business Group */}
           <th className="px-1.5 py-1.5 w-[70px] font-medium border-l border-border/30">Platform</th>
@@ -274,8 +275,10 @@ function LeadRow({
           {lead.state || "-"}
         </span>
       </td>
-      <td className="px-1.5 py-1 text-muted-foreground font-mono">
-        {lead.country_code || "-"}
+      <td className="px-1.5 py-1 text-muted-foreground" title={lead.country_code || ""}>
+        <span className="truncate block max-w-[65px]">
+          {getCountryName(lead.country_code)}
+        </span>
       </td>
 
       {/* Business Group */}

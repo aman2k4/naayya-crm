@@ -303,14 +303,22 @@ export default function BulkEnrichmentReviewModal({
     setIsApplying(true);
     const providerResult = state.providers[provider];
 
+    // Helper to check if a URL field has invalid validation status
+    const isUrlFieldInvalid = (field: string): boolean => {
+      if (field === "website" && providerResult.websiteStatus && !providerResult.websiteStatus.valid) return true;
+      if (field === "instagram" && providerResult.instagramStatus && !providerResult.instagramStatus.valid) return true;
+      if (field === "facebook" && providerResult.facebookStatus && !providerResult.facebookStatus.valid) return true;
+      return false;
+    };
+
     const fieldsToApply: Record<string, string | number> = {};
     for (const [field, value] of Object.entries(providerResult.newFields)) {
-      if (!state.appliedFields.has(field)) {
+      if (!state.appliedFields.has(field) && !isUrlFieldInvalid(field)) {
         fieldsToApply[field] = coerceUpdateValue(field, value);
       }
     }
     for (const conflict of providerResult.conflicts) {
-      if (!state.appliedFields.has(conflict.field)) {
+      if (!state.appliedFields.has(conflict.field) && !isUrlFieldInvalid(conflict.field)) {
         fieldsToApply[conflict.field] = coerceUpdateValue(conflict.field, conflict.found);
       }
     }
@@ -743,9 +751,21 @@ function LeadEnrichmentCard({
               const current = getCurrentValue(field);
               const isApplied = appliedFields.has(field);
 
-              // Get website validation status
+              // Get URL validation status
               const gWebsiteStatus = field === "website" && gVal ? providers.gemini.websiteStatus : undefined;
               const pWebsiteStatus = field === "website" && pVal ? providers.perplexity.websiteStatus : undefined;
+              const gInstagramStatus = field === "instagram" && gVal ? providers.gemini.instagramStatus : undefined;
+              const pInstagramStatus = field === "instagram" && pVal ? providers.perplexity.instagramStatus : undefined;
+              const gFacebookStatus = field === "facebook" && gVal ? providers.gemini.facebookStatus : undefined;
+              const pFacebookStatus = field === "facebook" && pVal ? providers.perplexity.facebookStatus : undefined;
+
+              // Check if URL validation failed
+              const gUrlInvalid = (gWebsiteStatus && !gWebsiteStatus.valid) ||
+                                  (gInstagramStatus && !gInstagramStatus.valid) ||
+                                  (gFacebookStatus && !gFacebookStatus.valid);
+              const pUrlInvalid = (pWebsiteStatus && !pWebsiteStatus.valid) ||
+                                  (pInstagramStatus && !pInstagramStatus.valid) ||
+                                  (pFacebookStatus && !pFacebookStatus.valid);
 
               return (
                 <div key={field} className="grid grid-cols-[80px_1fr_1fr] gap-1.5 items-start text-[10px]">
@@ -764,10 +784,14 @@ function LeadEnrichmentCard({
                     <div className="flex items-start gap-1">
                       {gVal ? (
                         <>
-                          <span className={cn("flex-1 break-words", isApplied && "text-green-600")}>
+                          <span className={cn(
+                            "flex-1 break-words",
+                            isApplied && "text-green-600",
+                            gUrlInvalid && "text-muted-foreground/50 line-through"
+                          )}>
                             {gVal}
                           </span>
-                          {!isApplied && !isSameAsCurrent(field, gVal) && (
+                          {!isApplied && !isSameAsCurrent(field, gVal) && !gUrlInvalid && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -784,12 +808,22 @@ function LeadEnrichmentCard({
                         <span className="text-muted-foreground/50">-</span>
                       )}
                     </div>
-                    {/* Website validation status */}
+                    {/* URL validation status */}
                     {gWebsiteStatus && (
                       <div className={cn("text-[9px]", gWebsiteStatus.valid ? "text-green-600" : "text-red-500")}>
                         {gWebsiteStatus.valid
-                          ? `✓ Valid (${gWebsiteStatus.status})`
-                          : `✗ ${gWebsiteStatus.error || `Error ${gWebsiteStatus.status}`}`}
+                          ? `Valid (${gWebsiteStatus.status})`
+                          : `${gWebsiteStatus.error || `Error ${gWebsiteStatus.status}`}`}
+                      </div>
+                    )}
+                    {gInstagramStatus && (
+                      <div className={cn("text-[9px]", gInstagramStatus.valid ? "text-green-600" : "text-red-500")}>
+                        {gInstagramStatus.valid ? "Valid" : gInstagramStatus.error || "Invalid"}
+                      </div>
+                    )}
+                    {gFacebookStatus && (
+                      <div className={cn("text-[9px]", gFacebookStatus.valid ? "text-green-600" : "text-red-500")}>
+                        {gFacebookStatus.valid ? "Valid" : gFacebookStatus.error || "Invalid"}
                       </div>
                     )}
                   </div>
@@ -799,10 +833,14 @@ function LeadEnrichmentCard({
                     <div className="flex items-start gap-1">
                       {pVal ? (
                         <>
-                          <span className={cn("flex-1 break-words", isApplied && "text-green-600")}>
+                          <span className={cn(
+                            "flex-1 break-words",
+                            isApplied && "text-green-600",
+                            pUrlInvalid && "text-muted-foreground/50 line-through"
+                          )}>
                             {pVal}
                           </span>
-                          {!isApplied && !isSameAsCurrent(field, pVal) && (
+                          {!isApplied && !isSameAsCurrent(field, pVal) && !pUrlInvalid && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -819,12 +857,22 @@ function LeadEnrichmentCard({
                         <span className="text-muted-foreground/50">-</span>
                       )}
                     </div>
-                    {/* Website validation status */}
+                    {/* URL validation status */}
                     {pWebsiteStatus && (
                       <div className={cn("text-[9px]", pWebsiteStatus.valid ? "text-green-600" : "text-red-500")}>
                         {pWebsiteStatus.valid
-                          ? `✓ Valid (${pWebsiteStatus.status})`
-                          : `✗ ${pWebsiteStatus.error || `Error ${pWebsiteStatus.status}`}`}
+                          ? `Valid (${pWebsiteStatus.status})`
+                          : `${pWebsiteStatus.error || `Error ${pWebsiteStatus.status}`}`}
+                      </div>
+                    )}
+                    {pInstagramStatus && (
+                      <div className={cn("text-[9px]", pInstagramStatus.valid ? "text-green-600" : "text-red-500")}>
+                        {pInstagramStatus.valid ? "Valid" : pInstagramStatus.error || "Invalid"}
+                      </div>
+                    )}
+                    {pFacebookStatus && (
+                      <div className={cn("text-[9px]", pFacebookStatus.valid ? "text-green-600" : "text-red-500")}>
+                        {pFacebookStatus.valid ? "Valid" : pFacebookStatus.error || "Invalid"}
                       </div>
                     )}
                   </div>

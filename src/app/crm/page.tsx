@@ -48,6 +48,7 @@ import BulkEnrichmentReviewModal from "./components/BulkEnrichmentReviewModal";
 import { ColdEmailPreviewModal } from "./components/ColdEmailPreviewModal";
 import { LeadsTable } from "./components/LeadsTable";
 import { EnrichmentProvider, useEnrichment } from "./context/EnrichmentContext";
+import { getCountryName } from "@/utils/countries";
 
 const EMAIL_STATUS_OPTIONS = [
   { value: "not_sent", label: "Not Sent", icon: Mail },
@@ -113,8 +114,9 @@ function CRMDashboardContent() {
   const [emailStatus, setEmailStatus] = useState<Record<string, EmailStatus>>(
     {}
   );
-  const [lastEmailFrom, setLastEmailFrom] = useState("");
-  const [lastEmailTo, setLastEmailTo] = useState("");
+  const [dateFilterField, setDateFilterField] = useState<"last_email" | "updated_at">("last_email");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [minEmailsSent, setMinEmailsSent] = useState("");
   const [maxEmailsSent, setMaxEmailsSent] = useState("");
   const [emailEventsModalOpen, setEmailEventsModalOpen] = useState(false);
@@ -151,8 +153,9 @@ function CRMDashboardContent() {
       source?: string;
       page?: number;
       limit?: number;
-      lastEmailFrom?: string;
-      lastEmailTo?: string;
+      dateField?: "last_email" | "updated_at";
+      dateFrom?: string;
+      dateTo?: string;
       minEmailsSent?: string;
       maxEmailsSent?: string;
       sort?: "updated_at" | "last_email";
@@ -187,20 +190,29 @@ function CRMDashboardContent() {
         }
       }
 
-      // Update or remove last email window filters
-      if (filters.lastEmailFrom !== undefined) {
-        if (filters.lastEmailFrom) {
-          params.set("lastEmailFrom", filters.lastEmailFrom);
+      // Update or remove date filter field
+      if (filters.dateField !== undefined) {
+        if (filters.dateField && filters.dateField !== "last_email") {
+          params.set("dateField", filters.dateField);
         } else {
-          params.delete("lastEmailFrom");
+          params.delete("dateField");
         }
       }
 
-      if (filters.lastEmailTo !== undefined) {
-        if (filters.lastEmailTo) {
-          params.set("lastEmailTo", filters.lastEmailTo);
+      // Update or remove date range filters
+      if (filters.dateFrom !== undefined) {
+        if (filters.dateFrom) {
+          params.set("dateFrom", filters.dateFrom);
         } else {
-          params.delete("lastEmailTo");
+          params.delete("dateFrom");
+        }
+      }
+
+      if (filters.dateTo !== undefined) {
+        if (filters.dateTo) {
+          params.set("dateTo", filters.dateTo);
+        } else {
+          params.delete("dateTo");
         }
       }
 
@@ -288,12 +300,9 @@ function CRMDashboardContent() {
     const urlEmailStatus = searchParams.get("emailStatus") || "__all__";
     const urlPlatform = searchParams.get("platform") || "__all__";
     const urlSource = searchParams.get("source") || "__all__";
-    const urlLastEmailFrom = normalizeDateInput(
-      searchParams.get("lastEmailFrom") || ""
-    );
-    const urlLastEmailTo = normalizeDateInput(
-      searchParams.get("lastEmailTo") || ""
-    );
+    const urlDateField = (searchParams.get("dateField") as "last_email" | "updated_at" | null) || "last_email";
+    const urlDateFrom = normalizeDateInput(searchParams.get("dateFrom") || "");
+    const urlDateTo = normalizeDateInput(searchParams.get("dateTo") || "");
     const urlMinEmailsSent = searchParams.get("minEmailsSent") || "";
     const urlMaxEmailsSent = searchParams.get("maxEmailsSent") || "";
     const urlPage = parseInt(searchParams.get("page") || "1");
@@ -311,8 +320,9 @@ function CRMDashboardContent() {
     setSelectedEmailStatus(urlEmailStatus);
     setSelectedPlatform(urlPlatform);
     setSelectedSource(urlSource);
-    setLastEmailFrom(urlLastEmailFrom);
-    setLastEmailTo(urlLastEmailTo);
+    setDateFilterField(urlDateField === "updated_at" ? "updated_at" : "last_email");
+    setDateFrom(urlDateFrom);
+    setDateTo(urlDateTo);
     setMinEmailsSent(urlMinEmailsSent);
     setMaxEmailsSent(urlMaxEmailsSent);
     setEverEmailedOnly(
@@ -329,8 +339,9 @@ function CRMDashboardContent() {
       emailStatus: urlEmailStatus,
       platform: urlPlatform,
       source: urlSource,
-      lastEmailFrom: urlLastEmailFrom,
-      lastEmailTo: urlLastEmailTo,
+      dateField: (urlDateField === "updated_at" ? "updated_at" : "last_email") as "updated_at" | "last_email",
+      dateFrom: urlDateFrom,
+      dateTo: urlDateTo,
       minEmailsSent: urlMinEmailsSent,
       maxEmailsSent: urlMaxEmailsSent,
       page: urlPage,
@@ -362,8 +373,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
@@ -408,8 +420,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo,
+      dateFilterField,
+      dateFrom,
+      dateTo,
       minEmailsSent,
       maxEmailsSent,
       nextSortField,
@@ -548,8 +561,9 @@ function CRMDashboardContent() {
     limit?: number,
     platform = "",
     source = "",
-    lastEmailFromParam = lastEmailFrom,
-    lastEmailToParam = lastEmailTo,
+    dateFieldParam: "last_email" | "updated_at" = dateFilterField,
+    dateFromParam = dateFrom,
+    dateToParam = dateTo,
     minEmailsSentParam = minEmailsSent,
     maxEmailsSentParam = maxEmailsSent,
     sortFieldParam: "updated_at" | "last_email" = sortField,
@@ -557,8 +571,8 @@ function CRMDashboardContent() {
   ) => {
     try {
       setLoading(true);
-      const trimmedLastEmailFrom = lastEmailFromParam?.trim() || "";
-      const trimmedLastEmailTo = lastEmailToParam?.trim() || "";
+      const trimmedDateFrom = dateFromParam?.trim() || "";
+      const trimmedDateTo = dateToParam?.trim() || "";
       const trimmedMinEmailsSent = minEmailsSentParam?.trim() || "";
       const trimmedMaxEmailsSent = maxEmailsSentParam?.trim() || "";
       const params = new URLSearchParams({
@@ -577,12 +591,21 @@ function CRMDashboardContent() {
         params.set("emailStatus", emailStatus);
       }
 
-      if (trimmedLastEmailFrom) {
-        params.set("lastEmailFrom", trimmedLastEmailFrom);
+      // Add date range filters based on selected date field
+      if (trimmedDateFrom) {
+        if (dateFieldParam === "updated_at") {
+          params.set("updatedFrom", trimmedDateFrom);
+        } else {
+          params.set("lastEmailFrom", trimmedDateFrom);
+        }
       }
 
-      if (trimmedLastEmailTo) {
-        params.set("lastEmailTo", trimmedLastEmailTo);
+      if (trimmedDateTo) {
+        if (dateFieldParam === "updated_at") {
+          params.set("updatedTo", trimmedDateTo);
+        } else {
+          params.set("lastEmailTo", trimmedDateTo);
+        }
       }
 
       if (trimmedMinEmailsSent) {
@@ -656,8 +679,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
@@ -686,8 +710,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo,
+      dateFilterField,
+      dateFrom,
+      dateTo,
       minEmailsSent,
       maxEmailsSent
     );
@@ -724,8 +749,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
@@ -757,8 +783,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
@@ -790,8 +817,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
@@ -821,17 +849,20 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
-  const applyLastEmailRange = (
-    fromValue: string = lastEmailFrom,
-    toValue: string = lastEmailTo
+  const applyDateRange = (
+    fromValue: string = dateFrom,
+    toValue: string = dateTo,
+    field: "last_email" | "updated_at" = dateFilterField
   ) => {
-    setLastEmailFrom(fromValue);
-    setLastEmailTo(toValue);
+    setDateFrom(fromValue);
+    setDateTo(toValue);
+    setDateFilterField(field);
     setCurrentPage(1);
 
     // Clear selections when filters change
@@ -840,8 +871,9 @@ function CRMDashboardContent() {
     setAllFilteredLeads([]);
 
     updateURL({
-      lastEmailFrom: fromValue,
-      lastEmailTo: toValue,
+      dateField: field,
+      dateFrom: fromValue,
+      dateTo: toValue,
       page: 1,
     });
 
@@ -859,9 +891,22 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
+      field,
       fromValue,
       toValue
     );
+  };
+
+  const handleDateFieldChange = (field: "last_email" | "updated_at") => {
+    if (field === dateFilterField) return; // No change
+
+    setDateFilterField(field);
+
+    // Only update URL and refetch if there are actual date values set
+    // Otherwise just update local state - no need to touch URL or refetch
+    if (dateFrom || dateTo) {
+      applyDateRange(dateFrom, dateTo, field);
+    }
   };
 
   const handleEmailsSentRangeInput = (
@@ -904,8 +949,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo,
+      dateFilterField,
+      dateFrom,
+      dateTo,
       minEmailsSent,
       maxEmailsSent
     );
@@ -944,8 +990,9 @@ function CRMDashboardContent() {
       undefined,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo,
+      dateFilterField,
+      dateFrom,
+      dateTo,
       nextMin,
       nextMax
     );
@@ -958,8 +1005,8 @@ function CRMDashboardContent() {
     selectedPlatform !== "__all__" ||
     selectedSource !== "__all__" ||
     selectedEmailStatus !== "__all__" ||
-    lastEmailFrom !== "" ||
-    lastEmailTo !== "" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
     minEmailsSent !== "" ||
     maxEmailsSent !== "" ||
     everEmailedOnly;
@@ -973,8 +1020,9 @@ function CRMDashboardContent() {
     setSelectedPlatform("__all__");
     setSelectedSource("__all__");
     setSelectedEmailStatus("__all__");
-    setLastEmailFrom("");
-    setLastEmailTo("");
+    setDateFilterField("last_email");
+    setDateFrom("");
+    setDateTo("");
     setMinEmailsSent("");
     setMaxEmailsSent("");
     setEverEmailedOnly(false);
@@ -991,7 +1039,7 @@ function CRMDashboardContent() {
     router.push("/crm", { scroll: false });
 
     // Fetch leads with default parameters
-    fetchLeads(1, "", "", "", undefined, "", "", "", "", "", "", "last_email", "desc");
+    fetchLeads(1, "", "", "", undefined, "", "", "last_email", "", "", "", "", "last_email", "desc");
   };
 
   const handleRowsPerPageChange = (newRowsPerPage: number) => {
@@ -1021,8 +1069,9 @@ function CRMDashboardContent() {
       newRowsPerPage,
       apiPlatform,
       apiSource,
-      lastEmailFrom,
-      lastEmailTo
+      dateFilterField,
+      dateFrom,
+      dateTo
     );
   };
 
@@ -1042,11 +1091,25 @@ function CRMDashboardContent() {
         ...(selectedSource !== "__all__" && { source: selectedSource.trim() }),
         sort: sortField,
         dir: sortDirection,
-        ...(lastEmailFrom.trim() && { lastEmailFrom: lastEmailFrom.trim() }),
-        ...(lastEmailTo.trim() && { lastEmailTo: lastEmailTo.trim() }),
         ...(minEmailsSent.trim() && { minEmailsSent: minEmailsSent.trim() }),
         ...(maxEmailsSent.trim() && { maxEmailsSent: maxEmailsSent.trim() }),
       });
+
+      // Add date range filters based on selected date field
+      if (dateFrom.trim()) {
+        if (dateFilterField === "updated_at") {
+          params.set("updatedFrom", dateFrom.trim());
+        } else {
+          params.set("lastEmailFrom", dateFrom.trim());
+        }
+      }
+      if (dateTo.trim()) {
+        if (dateFilterField === "updated_at") {
+          params.set("updatedTo", dateTo.trim());
+        } else {
+          params.set("lastEmailTo", dateTo.trim());
+        }
+      }
 
       // Add email status filter
       if (selectedEmailStatus && selectedEmailStatus !== "__all__") {
@@ -1245,8 +1308,9 @@ function CRMDashboardContent() {
       urlFilters.limit,
       apiPlatform,
       apiSource,
-      urlFilters.lastEmailFrom,
-      urlFilters.lastEmailTo,
+      urlFilters.dateField,
+      urlFilters.dateFrom,
+      urlFilters.dateTo,
       urlFilters.minEmailsSent,
       urlFilters.maxEmailsSent
     );
@@ -1377,149 +1441,185 @@ function CRMDashboardContent() {
         />
       </div>
 
-      {/* Compact Filters Bar */}
-      <div className="flex items-center gap-2 mb-3 flex-shrink-0 flex-wrap">
-        <div className="flex items-center gap-2 h-8 px-2 border border-input rounded-md bg-background">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            Sort
-          </span>
-          <Select
-            value={sortField}
-            onValueChange={(value) =>
-              handleSortFieldChange(value as "updated_at" | "last_email")
-            }
-          >
-            <SelectTrigger className="w-[140px] h-6 text-xs bg-background">
-              <SelectValue />
+      {/* Filters Bar - Organized into logical groups */}
+      <div className="flex flex-col gap-2 mb-3 flex-shrink-0">
+        {/* Row 1: Lead filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={selectedCountry} onValueChange={handleCountryChange}>
+            <SelectTrigger className="w-40 h-8 text-xs bg-background">
+              <SelectValue placeholder="All Countries" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last_email">Last Email</SelectItem>
-              <SelectItem value="updated_at">Updated</SelectItem>
+            <SelectContent className="max-h-60">
+              <SelectItem value="__all__">All Countries</SelectItem>
+              {availableCountries.filter((c) => c && c.trim()).map((country) => (
+                <SelectItem key={country} value={country}>{getCountryName(country)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
+
+          <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
+            <SelectTrigger className="w-32 h-8 text-xs bg-background">
+              <SelectValue placeholder="All Platforms" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              <SelectItem value="__all__">All Platforms</SelectItem>
+              {availablePlatforms.filter((p) => p && p.trim()).map((platform) => (
+                <SelectItem key={platform} value={platform}>{platform}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedSource} onValueChange={handleSourceChange}>
+            <SelectTrigger className="w-32 h-8 text-xs bg-background">
+              <SelectValue placeholder="All Sources" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              <SelectItem value="__all__">All Sources</SelectItem>
+              {availableSources.filter((s) => s && s.trim()).map((source) => (
+                <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="h-6 w-px bg-border mx-1" />
+
+          <Select value={selectedEmailStatus} onValueChange={handleEmailStatusChange}>
+            <SelectTrigger className="w-32 h-8 text-xs bg-background" title="Email status">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              <SelectItem value="__all__">All Statuses</SelectItem>
+              {EMAIL_STATUS_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-3 h-3" />
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-1.5 h-8 px-2 border border-input rounded-md bg-background">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Emails:</span>
+            <Input
+              type="number"
+              min={0}
+              value={minEmailsSent}
+              onChange={(e) => handleEmailsSentRangeInput("min", e.target.value)}
+              onBlur={applyEmailsSentRange}
+              onKeyDown={(e) => e.key === "Enter" && applyEmailsSentRange()}
+              className="h-6 w-12 text-xs bg-transparent border-0 p-0 text-center"
+              placeholder="0"
+            />
+            <span className="text-xs text-muted-foreground">-</span>
+            <Input
+              type="number"
+              min={0}
+              value={maxEmailsSent}
+              onChange={(e) => handleEmailsSentRangeInput("max", e.target.value)}
+              onBlur={applyEmailsSentRange}
+              onKeyDown={(e) => e.key === "Enter" && applyEmailsSentRange()}
+              className="h-6 w-12 text-xs bg-transparent border-0 p-0 text-center"
+              placeholder="Any"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 h-8 px-2 border border-input rounded-md bg-background">
+            <Checkbox
+              id="ever-emailed"
+              checked={everEmailedOnly}
+              onCheckedChange={(checked) =>
+                handleEverEmailedToggle(Boolean(checked))
+              }
+              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+            <Label htmlFor="ever-emailed" className="text-xs cursor-pointer whitespace-nowrap">
+              Ever emailed
+            </Label>
+          </div>
         </div>
 
-        <Select value={selectedCountry} onValueChange={handleCountryChange}>
-          <SelectTrigger className="w-32 h-8 text-xs bg-background">
-            <SelectValue placeholder="All Countries" />
-          </SelectTrigger>
-          <SelectContent className="max-h-60">
-            <SelectItem value="__all__">All Countries</SelectItem>
-            {availableCountries.filter((c) => c && c.trim()).map((country) => (
-              <SelectItem key={country} value={country}>{country}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Row 2: Date filter with field selector + Sort */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Date Filter Group - visually distinct */}
+          <div className="flex items-center gap-1.5 h-8 px-2 border border-input rounded-md bg-muted/30">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Filter by</span>
+            <div className="flex rounded-md overflow-hidden border border-input">
+              <button
+                onClick={() => handleDateFieldChange("last_email")}
+                className={`px-2 py-1 text-xs transition-colors ${
+                  dateFilterField === "last_email"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Last Email
+              </button>
+              <button
+                onClick={() => handleDateFieldChange("updated_at")}
+                className={`px-2 py-1 text-xs transition-colors ${
+                  dateFilterField === "updated_at"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Updated
+              </button>
+            </div>
+            <DatePicker
+              value={dateFrom}
+              onChange={(value) => applyDateRange(value, dateTo)}
+              placeholder="From"
+              className="h-6 w-[120px] text-xs"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <DatePicker
+              value={dateTo}
+              onChange={(value) => applyDateRange(dateFrom, value)}
+              placeholder="To"
+              className="h-6 w-[120px] text-xs"
+            />
+          </div>
 
-        <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
-          <SelectTrigger className="w-32 h-8 text-xs bg-background">
-            <SelectValue placeholder="All Platforms" />
-          </SelectTrigger>
-          <SelectContent className="max-h-60">
-            <SelectItem value="__all__">All Platforms</SelectItem>
-            {availablePlatforms.filter((p) => p && p.trim()).map((platform) => (
-              <SelectItem key={platform} value={platform}>{platform}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <div className="h-6 w-px bg-border mx-1" />
 
-        <Select value={selectedSource} onValueChange={handleSourceChange}>
-          <SelectTrigger className="w-32 h-8 text-xs bg-background">
-            <SelectValue placeholder="All Sources" />
-          </SelectTrigger>
-          <SelectContent className="max-h-60">
-            <SelectItem value="__all__">All Sources</SelectItem>
-            {availableSources.filter((s) => s && s.trim()).map((source) => (
-              <SelectItem key={source} value={source}>{source}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Sort */}
+          <div className="flex items-center gap-2 h-8 px-2 border border-input rounded-md bg-background">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              Sort
+            </span>
+            <Select
+              value={sortField}
+              onValueChange={(value) =>
+                handleSortFieldChange(value as "updated_at" | "last_email")
+              }
+            >
+              <SelectTrigger className="w-[100px] h-6 text-xs bg-transparent border-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last_email">Last Email</SelectItem>
+                <SelectItem value="updated_at">Updated</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <Select value={selectedEmailStatus} onValueChange={handleEmailStatusChange}>
-          <SelectTrigger className="w-32 h-8 text-xs bg-background" title="Last email event status">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent className="max-h-60">
-            <SelectItem value="__all__">All Statuses</SelectItem>
-            {EMAIL_STATUS_OPTIONS.map((option) => {
-              const Icon = option.icon;
-              return (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex items-center gap-2">
-                    <Icon className="w-3 h-3" />
-                    <span>{option.label}</span>
-                  </div>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-
-        <div className="flex items-center gap-1.5">
-          <DatePicker
-            value={lastEmailFrom}
-            onChange={(value) => applyLastEmailRange(value, lastEmailTo)}
-            placeholder="From"
-            className="h-8 w-[130px] text-xs"
-          />
-          <span className="text-xs text-muted-foreground">to</span>
-          <DatePicker
-            value={lastEmailTo}
-            onChange={(value) => applyLastEmailRange(lastEmailFrom, value)}
-            placeholder="To"
-            className="h-8 w-[130px] text-xs"
-          />
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearFilters}
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Clear filters
+            </Button>
+          )}
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <Input
-            type="number"
-            min={0}
-            value={minEmailsSent}
-            onChange={(e) => handleEmailsSentRangeInput("min", e.target.value)}
-            onBlur={applyEmailsSentRange}
-            onKeyDown={(e) => e.key === "Enter" && applyEmailsSentRange()}
-            className="h-8 w-16 text-xs bg-background"
-            placeholder="Min"
-          />
-          <span className="text-xs text-muted-foreground">-</span>
-          <Input
-            type="number"
-            min={0}
-            value={maxEmailsSent}
-            onChange={(e) => handleEmailsSentRangeInput("max", e.target.value)}
-            onBlur={applyEmailsSentRange}
-            onKeyDown={(e) => e.key === "Enter" && applyEmailsSentRange()}
-            className="h-8 w-16 text-xs bg-background"
-            placeholder="Max"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 h-8 px-2 border border-input rounded-md bg-background">
-          <Checkbox
-            id="ever-emailed"
-            checked={everEmailedOnly}
-            onCheckedChange={(checked) =>
-              handleEverEmailedToggle(Boolean(checked))
-            }
-            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-          />
-          <Label htmlFor="ever-emailed" className="text-xs cursor-pointer whitespace-nowrap">
-            Ever emailed (≥1)
-          </Label>
-        </div>
-
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearFilters}
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <X className="w-3 h-3 mr-1" />
-            Clear filters
-          </Button>
-        )}
       </div>
 
       {/* Leads Table */}

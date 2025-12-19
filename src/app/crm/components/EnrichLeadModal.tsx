@@ -186,9 +186,17 @@ export default function EnrichLeadModal({
 
     const providerResult = enrichmentResult.providers[provider];
 
+    // Helper to check if a URL field has invalid validation status
+    const isUrlFieldInvalid = (field: string): boolean => {
+      if (field === "website" && providerResult.websiteStatus && !providerResult.websiteStatus.valid) return true;
+      if (field === "instagram" && providerResult.instagramStatus && !providerResult.instagramStatus.valid) return true;
+      if (field === "facebook" && providerResult.facebookStatus && !providerResult.facebookStatus.valid) return true;
+      return false;
+    };
+
     const fieldsToApply: Record<string, string | number> = {};
     for (const [field, value] of Object.entries(providerResult.newFields)) {
-      if (!appliedFields.has(field)) {
+      if (!appliedFields.has(field) && !isUrlFieldInvalid(field)) {
         if (field === "classes_per_week_estimate" || field === "instructors_count_estimate") {
           const digits = value.replace(/[^\d]/g, "");
           const n = parseInt(digits, 10);
@@ -199,7 +207,7 @@ export default function EnrichLeadModal({
       }
     }
     for (const conflict of providerResult.conflicts) {
-      if (!appliedFields.has(conflict.field)) {
+      if (!appliedFields.has(conflict.field) && !isUrlFieldInvalid(conflict.field)) {
         if (conflict.field === "classes_per_week_estimate" || conflict.field === "instructors_count_estimate") {
           const digits = conflict.found.replace(/[^\d]/g, "");
           const n = parseInt(digits, 10);
@@ -297,9 +305,22 @@ export default function EnrichLeadModal({
 
   const providerApplyable = (r: LeadEnrichmentProviderResult | undefined | null) => {
     if (!r) return [];
+
+    // Helper to check if a URL field has invalid validation status
+    const isUrlFieldInvalid = (field: string): boolean => {
+      if (field === "website" && r.websiteStatus && !r.websiteStatus.valid) return true;
+      if (field === "instagram" && r.instagramStatus && !r.instagramStatus.valid) return true;
+      if (field === "facebook" && r.facebookStatus && !r.facebookStatus.valid) return true;
+      return false;
+    };
+
     const keys = new Set<string>();
-    for (const k of Object.keys(r.newFields || {})) keys.add(k);
-    for (const c of r.conflicts || []) keys.add(c.field);
+    for (const k of Object.keys(r.newFields || {})) {
+      if (!isUrlFieldInvalid(k)) keys.add(k);
+    }
+    for (const c of r.conflicts || []) {
+      if (!isUrlFieldInvalid(c.field)) keys.add(c.field);
+    }
     return Array.from(keys);
   };
 
@@ -522,9 +543,16 @@ export default function EnrichLeadModal({
 
                           {/* Gemini cell */}
                           <div className="min-w-0">
-                            <div className={`text-xs break-all ${gMatchesCurrent ? 'text-muted-foreground' : 'font-medium'}`}>
-                              {g || "-"}
-                            </div>
+                            {(() => {
+                              const gUrlInvalid = (field === "website" && gemini?.websiteStatus && !gemini.websiteStatus.valid) ||
+                                (field === "instagram" && gemini?.instagramStatus && !gemini.instagramStatus.valid) ||
+                                (field === "facebook" && gemini?.facebookStatus && !gemini.facebookStatus.valid);
+                              return (
+                                <div className={`text-xs break-all ${gUrlInvalid ? 'text-muted-foreground/50 line-through' : gMatchesCurrent ? 'text-muted-foreground' : 'font-medium'}`}>
+                                  {g || "-"}
+                                </div>
+                              );
+                            })()}
                             {g && gMatchesCurrent && (
                               <div className="text-[10px] text-muted-foreground mt-0.5">Same as current</div>
                             )}
@@ -535,7 +563,21 @@ export default function EnrichLeadModal({
                                   : `${gemini.websiteStatus.error || `Error ${gemini.websiteStatus.status}`}`}
                               </div>
                             )}
-                            {g && !gMatchesCurrent && (
+                            {field === "instagram" && g && gemini?.instagramStatus && (
+                              <div className={`text-[10px] mt-0.5 ${gemini.instagramStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                {gemini.instagramStatus.valid ? 'Valid' : gemini.instagramStatus.error || 'Invalid'}
+                              </div>
+                            )}
+                            {field === "facebook" && g && gemini?.facebookStatus && (
+                              <div className={`text-[10px] mt-0.5 ${gemini.facebookStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                {gemini.facebookStatus.valid ? 'Valid' : gemini.facebookStatus.error || 'Invalid'}
+                              </div>
+                            )}
+                            {g && !gMatchesCurrent && !(
+                              (field === "website" && gemini?.websiteStatus && !gemini.websiteStatus.valid) ||
+                              (field === "instagram" && gemini?.instagramStatus && !gemini.instagramStatus.valid) ||
+                              (field === "facebook" && gemini?.facebookStatus && !gemini.facebookStatus.valid)
+                            ) && (
                               <Button
                                 size="sm"
                                 variant={appliedFields.has(field) ? "ghost" : "default"}
@@ -550,9 +592,16 @@ export default function EnrichLeadModal({
 
                           {/* Perplexity cell */}
                           <div className="min-w-0">
-                            <div className={`text-xs break-all ${pMatchesCurrent ? 'text-muted-foreground' : 'font-medium'}`}>
-                              {p || "-"}
-                            </div>
+                            {(() => {
+                              const pUrlInvalid = (field === "website" && perplexity?.websiteStatus && !perplexity.websiteStatus.valid) ||
+                                (field === "instagram" && perplexity?.instagramStatus && !perplexity.instagramStatus.valid) ||
+                                (field === "facebook" && perplexity?.facebookStatus && !perplexity.facebookStatus.valid);
+                              return (
+                                <div className={`text-xs break-all ${pUrlInvalid ? 'text-muted-foreground/50 line-through' : pMatchesCurrent ? 'text-muted-foreground' : 'font-medium'}`}>
+                                  {p || "-"}
+                                </div>
+                              );
+                            })()}
                             {p && pMatchesCurrent && (
                               <div className="text-[10px] text-muted-foreground mt-0.5">Same as current</div>
                             )}
@@ -563,7 +612,21 @@ export default function EnrichLeadModal({
                                   : `${perplexity.websiteStatus.error || `Error ${perplexity.websiteStatus.status}`}`}
                               </div>
                             )}
-                            {p && !pMatchesCurrent && (
+                            {field === "instagram" && p && perplexity?.instagramStatus && (
+                              <div className={`text-[10px] mt-0.5 ${perplexity.instagramStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                {perplexity.instagramStatus.valid ? 'Valid' : perplexity.instagramStatus.error || 'Invalid'}
+                              </div>
+                            )}
+                            {field === "facebook" && p && perplexity?.facebookStatus && (
+                              <div className={`text-[10px] mt-0.5 ${perplexity.facebookStatus.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                {perplexity.facebookStatus.valid ? 'Valid' : perplexity.facebookStatus.error || 'Invalid'}
+                              </div>
+                            )}
+                            {p && !pMatchesCurrent && !(
+                              (field === "website" && perplexity?.websiteStatus && !perplexity.websiteStatus.valid) ||
+                              (field === "instagram" && perplexity?.instagramStatus && !perplexity.instagramStatus.valid) ||
+                              (field === "facebook" && perplexity?.facebookStatus && !perplexity.facebookStatus.valid)
+                            ) && (
                               <Button
                                 size="sm"
                                 variant={appliedFields.has(field) ? "ghost" : "outline"}

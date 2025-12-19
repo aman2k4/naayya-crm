@@ -1,0 +1,47 @@
+export const COUNTRY_DATA: Record<string, { name: string; flag: string }> = {
+  US: { name: "United States", flag: "\u{1F1FA}\u{1F1F8}" },
+  CA: { name: "Canada", flag: "\u{1F1E8}\u{1F1E6}" },
+  DE: { name: "Germany", flag: "\u{1F1E9}\u{1F1EA}" },
+  GB: { name: "United Kingdom", flag: "\u{1F1EC}\u{1F1E7}" },
+  IT: { name: "Italy", flag: "\u{1F1EE}\u{1F1F9}" },
+  AT: { name: "Austria", flag: "\u{1F1E6}\u{1F1F9}" },
+  AU: { name: "Australia", flag: "\u{1F1E6}\u{1F1FA}" },
+  NL: { name: "Netherlands", flag: "\u{1F1F3}\u{1F1F1}" },
+  CH: { name: "Switzerland", flag: "\u{1F1E8}\u{1F1ED}" },
+  FR: { name: "France", flag: "\u{1F1EB}\u{1F1F7}" },
+  NZ: { name: "New Zealand", flag: "\u{1F1F3}\u{1F1FF}" },
+  ES: { name: "Spain", flag: "\u{1F1EA}\u{1F1F8}" },
+  LU: { name: "Luxembourg", flag: "\u{1F1F1}\u{1F1FA}" },
+  SE: { name: "Sweden", flag: "\u{1F1F8}\u{1F1EA}" },
+  AE: { name: "UAE", flag: "\u{1F1E6}\u{1F1EA}" },
+  BE: { name: "Belgium", flag: "\u{1F1E7}\u{1F1EA}" },
+  CZ: { name: "Czech Republic", flag: "\u{1F1E8}\u{1F1FF}" },
+  NO: { name: "Norway", flag: "\u{1F1F3}\u{1F1F4}" },
+  HK: { name: "Hong Kong", flag: "\u{1F1ED}\u{1F1F0}" },
+  SG: { name: "Singapore", flag: "\u{1F1F8}\u{1F1EC}" },
+  FI: { name: "Finland", flag: "\u{1F1EB}\u{1F1EE}" },
+  PT: { name: "Portugal", flag: "\u{1F1F5}\u{1F1F9}" },
+  DK: { name: "Denmark", flag: "\u{1F1E9}\u{1F1F0}" },
+  IE: { name: "Ireland", flag: "\u{1F1EE}\u{1F1EA}" },
+  PL: { name: "Poland", flag: "\u{1F1F5}\u{1F1F1}" },
+  TW: { name: "Taiwan", flag: "\u{1F1F9}\u{1F1FC}" },
+  TH: { name: "Thailand", flag: "\u{1F1F9}\u{1F1ED}" },
+  ID: { name: "Indonesia", flag: "\u{1F1EE}\u{1F1E9}" },
+  MY: { name: "Malaysia", flag: "\u{1F1F2}\u{1F1FE}" },
+  CO: { name: "Colombia", flag: "\u{1F1E8}\u{1F1F4}" },
+  IS: { name: "Iceland", flag: "\u{1F1EE}\u{1F1F8}" },
+  MO: { name: "Macau", flag: "\u{1F1F2}\u{1F1F4}" },
+  AR: { name: "Argentina", flag: "\u{1F1E6}\u{1F1F7}" },
+  BM: { name: "Bermuda", flag: "\u{1F1E7}\u{1F1F2}" },
+  EE: { name: "Estonia", flag: "\u{1F1EA}\u{1F1EA}" },
+  JE: { name: "Jersey", flag: "\u{1F1EF}\u{1F1EA}" },
+  LV: { name: "Latvia", flag: "\u{1F1F1}\u{1F1FB}" },
+  PH: { name: "Philippines", flag: "\u{1F1F5}\u{1F1ED}" },
+  SA: { name: "Saudi Arabia", flag: "\u{1F1F8}\u{1F1E6}" },
+};
+
+export function getCountryName(code: string | null | undefined): string {
+  if (!code) return "-";
+  const country = COUNTRY_DATA[code.toUpperCase()];
+  return country ? `${country.flag} ${country.name}` : code;
+}

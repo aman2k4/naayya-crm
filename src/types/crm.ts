@@ -94,6 +94,11 @@ export interface WebsiteStatus {
   finalUrl?: string;
 }
 
+export interface SocialStatus {
+  valid: boolean;
+  error?: string;
+}
+
 
 export interface LeadEnrichmentProviderResult {
   provider: LeadEnrichmentProvider;
@@ -103,6 +108,8 @@ export interface LeadEnrichmentProviderResult {
   sources: string[];
   rawResponse: string;
   websiteStatus?: WebsiteStatus;
+  instagramStatus?: SocialStatus;
+  facebookStatus?: SocialStatus;
   error?: string;
 }
 

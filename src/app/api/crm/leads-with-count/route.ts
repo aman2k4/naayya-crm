@@ -67,6 +67,8 @@ type LeadFilters = {
   source?: string;
   lastEmailFromUTC?: string | null;
   lastEmailToUTC?: string | null;
+  updatedFromUTC?: string | null;
+  updatedToUTC?: string | null;
   minEmailsSent?: number | null;
   maxEmailsSent?: number | null;
 };
@@ -81,6 +83,8 @@ const applyLeadFilters = (
     source,
     lastEmailFromUTC,
     lastEmailToUTC,
+    updatedFromUTC,
+    updatedToUTC,
     minEmailsSent,
     maxEmailsSent,
   }: LeadFilters
@@ -116,6 +120,14 @@ const applyLeadFilters = (
 
   if (lastEmailFromUTC || lastEmailToUTC) {
     filteredQuery = filteredQuery.not('last_event_timestamp', 'is', null);
+  }
+
+  if (updatedFromUTC) {
+    filteredQuery = filteredQuery.gte('updated_at', updatedFromUTC);
+  }
+
+  if (updatedToUTC) {
+    filteredQuery = filteredQuery.lte('updated_at', updatedToUTC);
   }
 
   if (countryCode?.trim()) {
@@ -170,6 +182,8 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get('source') || '';
     const lastEmailFrom = searchParams.get('lastEmailFrom');
     const lastEmailTo = searchParams.get('lastEmailTo');
+    const updatedFrom = searchParams.get('updatedFrom');
+    const updatedTo = searchParams.get('updatedTo');
     const { number: minEmailsSent, raw: minEmailsSentRaw } = parseNumberFilter(
       searchParams.get('minEmailsSent')
     );
@@ -179,6 +193,8 @@ export async function GET(request: NextRequest) {
 
     const { iso: lastEmailFromUTC } = parseCETDateBoundary(lastEmailFrom, 'start');
     const { iso: lastEmailToUTC } = parseCETDateBoundary(lastEmailTo, 'end');
+    const { iso: updatedFromUTC } = parseCETDateBoundary(updatedFrom, 'start');
+    const { iso: updatedToUTC } = parseCETDateBoundary(updatedTo, 'end');
 
     if (lastEmailFrom && !lastEmailFromUTC) {
       return NextResponse.json({ error: 'Invalid lastEmailFrom date' }, { status: 400 });
@@ -186,6 +202,14 @@ export async function GET(request: NextRequest) {
 
     if (lastEmailTo && !lastEmailToUTC) {
       return NextResponse.json({ error: 'Invalid lastEmailTo date' }, { status: 400 });
+    }
+
+    if (updatedFrom && !updatedFromUTC) {
+      return NextResponse.json({ error: 'Invalid updatedFrom date' }, { status: 400 });
+    }
+
+    if (updatedTo && !updatedToUTC) {
+      return NextResponse.json({ error: 'Invalid updatedTo date' }, { status: 400 });
     }
 
     if (minEmailsSentRaw && Number.isNaN(minEmailsSent)) {
@@ -217,6 +241,8 @@ export async function GET(request: NextRequest) {
       source,
       lastEmailFromUTC,
       lastEmailToUTC,
+      updatedFromUTC,
+      updatedToUTC,
       minEmailsSent,
       maxEmailsSent,
     });
@@ -229,6 +255,8 @@ export async function GET(request: NextRequest) {
       source,
       lastEmailFromUTC,
       lastEmailToUTC,
+      updatedFromUTC,
+      updatedToUTC,
       minEmailsSent,
       maxEmailsSent,
     };

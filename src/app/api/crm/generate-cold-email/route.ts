@@ -152,119 +152,70 @@ export async function POST(request: NextRequest) {
     const classesPerWeek = (leadContext.classes_per_week_estimate as number) || 10;
     const instructors = (leadContext.instructors_count_estimate as number) || 0;
 
-    // Calculate potential value (for AI context, not to be stated directly)
-    const weeklyRevenue = classesPerWeek * avgRevenuePerClass;
+    // Calculate potential value proposition
+    // Assume ~10 participants per class on average for revenue calculation
+    const avgParticipantsPerClass = 10;
+    const revenuePerClass = avgRevenuePerClass * avgParticipantsPerClass;
+    const weeklyRevenue = classesPerWeek * revenuePerClass;
     const monthlyRevenue = Math.round(weeklyRevenue * 4.3);
-    const yearlyRevenue = monthlyRevenue * 12;
-    const transactionFeeSavingsYearly = Math.round(yearlyRevenue * 0.02);
-    const nayyaProSavings = nayyaProMonthly * 12;
-    const totalYearlySavings = transactionFeeSavingsYearly + nayyaProSavings;
-    const roundedSavings = Math.round(totalYearlySavings / 500) * 500;
+
+    // Transaction fee savings: MindBody/competitors charge ~4%, Naayya charges 2.5% = 1.5% savings
+    const transactionFeeSavingsMonthly = Math.round(monthlyRevenue * 0.015);
+    const netMonthlySavings = transactionFeeSavingsMonthly - nayyaProMonthly;
+    const netYearlySavings = netMonthlySavings * 12;
 
     // Build prompt with lead context - optimized for email deliverability
-    const prompt = `You are Sally Grüneisen, co-founder of Naayya, emailing a studio owner.
+    const prompt = `You are Sally Grüneisen, co-founder of Naayya. You ran a yoga studio for 7 years before building booking software. You write emails like you'd text a fellow studio owner - curious, direct, no bullshit.
 
-CONTEXT (use selectively, not exhaustively):
+LEAD:
 ${JSON.stringify(leadContext, null, 2)}
 
-${instructors ? `Note: The instructor count (${instructors}) is an ESTIMATE. Never state it as fact. You may say "looks like a small team" but never "your 5 instructors."` : ''}
-${leadContext.classes_per_week_estimate ? `Note: The class count (~${classesPerWeek}/week) is an ESTIMATE. Never state it as fact.` : ''}
+${instructors ? `(Instructor count ~${instructors} is an estimate - don't state as fact)` : ''}
+${leadContext.classes_per_week_estimate ? `(Class count ~${classesPerWeek}/week is an estimate - don't state as fact)` : ''}
 
----
-
-CORE PRINCIPLE:
-Write an email that makes them think "huh, that's interesting" — not "this is a sales pitch."
-
-The best cold emails feel like the start of a conversation, not a pitch. They make the reader curious. They don't try to close anything.
-
----
-
-FIVE RULES:
-
-1. ONE SPECIFIC DETAIL, MAX
-Pick one thing from their studio that actually interests you. Not three things. Not a list of everything you noticed. One detail, stated simply. If nothing stands out, skip the personalization entirely — a short honest email beats a long fake one.
-
-2. NO GUSHING, NO NEGGING
-Never say: "wow", "amazing", "incredible", "love what you're doing", "stopped me in my tracks", "had to reach out"
-These phrases signal inauthenticity. If you like something, just say what it is: "The rooftop space is a nice touch" not "OMG that rooftop space is incredible!"
-
-Also avoid backhanded compliments like "you pull it off without it feeling scattered" or "impressive that you manage to..." — these imply the opposite could be true and come across as condescending.
-
-3. STATE CURIOSITY, NOT CLAIMS
-Bad: "We help studios keep more of what they earn"
-Good: "I'm curious if you've looked at alternatives to ${leadContext.current_platform || 'your current setup'}"
-Bad: "Naayya could be a great fit"
-Good: "Not sure if it'd be relevant for you, but..."
-
-4. THE ASK SHOULD BE TINY
-Not: "Would you be open to a quick call?"
-Better: "Happy to share more if you're curious"
-Best: No ask at all — just end with something interesting and let them reply if they want
-
-5. KEEP IT SHORT
-3-4 sentences max. No filler. Every sentence should do work.
-
----
-
-TAILOR THE ANGLE TO THEIR SCALE:
-${(() => {
+SCALE: ${(() => {
   const size = instructors || 0;
   const classes = classesPerWeek || 0;
-
-  if (size >= 8 || classes >= 40) {
-    return `This looks like a LARGER operation (${size ? `~${size} instructors` : ''}${size && classes ? ', ' : ''}${classes ? `~${classes} classes/week` : ''}).
-Don't pitch "simpler" — they might hear "less capable."
-Better angles:
-- "Built by someone who's been in your shoes"
-- "Curious if you've compared what's out there lately"
-- "We work with studios running serious volume"
-- Focus on: better economics, fewer headaches at scale, someone who gets it`;
-  } else if (size >= 4 || classes >= 20) {
-    return `This looks like a MEDIUM operation (${size ? `~${size} instructors` : ''}${size && classes ? ', ' : ''}${classes ? `~${classes} classes/week` : ''}).
-They're past the scrappy early stage but not huge.
-Good angles:
-- "Right-sized tools for where you are"
-- "Keep more of what you're earning"
-- Focus on: value, not having to pay for enterprise features they don't need`;
-  } else {
-    return `This looks like a SMALLER operation (${size ? `~${size} instructors` : ''}${size && classes ? ', ' : ''}${classes ? `~${classes} classes/week` : ''}).
-"Simpler" and "more affordable" resonate here.
-Good angles:
-- "Built for studios like yours, not giant chains"
-- "Simpler than what's out there"
-- Focus on: ease, affordability, not being overwhelmed`;
-  }
+  if (size >= 8 || classes >= 40) return `Larger operation (${size ? `~${size} instructors` : ''}${size && classes ? ', ' : ''}${classes ? `~${classes} classes/week` : ''})`;
+  if (size >= 4 || classes >= 20) return `Medium operation (${size ? `~${size} instructors` : ''}${size && classes ? ', ' : ''}${classes ? `~${classes} classes/week` : ''})`;
+  return `Smaller operation (${size ? `~${size} instructors` : ''}${size && classes ? ', ' : ''}${classes ? `~${classes} classes/week` : ''})`;
 })()}
 
----
+NUMBERS YOU CAN USE:
+- Transaction fee savings: ~${currency}${transactionFeeSavingsMonthly}/month (~${currency}${transactionFeeSavingsMonthly * 12}/year) compared to ${leadContext.current_platform || 'typical platforms'}
+- They currently use ${leadContext.current_platform || 'a booking platform'}
 
-WHAT SALLY CAN MENTION (if relevant):
-- She ran a yoga studio for 7 years before building Naayya
-- She noticed they use ${leadContext.current_platform || 'a booking platform'} (without criticizing it)
-- Naayya's positioning depends on studio size — see above
+OFFER:
+- Naayya Pro free for a year (worth ${currency}${nayyaProMonthly * 12})
+- Mention the value when offering the free year
+- Do NOT mention monthly pricing - only the free year offer and its value
+
+STRUCTURE:
+1. Greeting (Hi ${leadContext.first_name || '[name]'},)
+2. Brief context - why you're reaching out (fellow studio owner, noticed they use X, came across their studio)
+3. The value or point
+4. Soft close
+5. Signature
+
+TONE:
+- One specific detail max, or none if nothing stands out
+- No gushing (avoid: amazing, incredible, love what you're doing)
+- Direct, not wishy-washy (avoid: not sure if, might be relevant)
+- Soft, human close - not salesy (avoid: Worth a look?, Worth a chat?, Open to seeing if it's a fit?)
+- 3-5 sentences max
 
 DELIVERABILITY:
-- No links in body. Only in signature.
-- Avoid: "save", "free", "offer", "discount", "guarantee", "limited time", "opportunity"
-- Plain text only. No formatting.
-- NEVER use emdashes (—). Use a regular hyphen (-) or rewrite the sentence instead.
+- No links in body, only in signature
+- No emdashes (-), use hyphens
+- Plain text only
 
-SIGNATURE (always use exactly this):
+SIGNATURE (exactly this):
 Sally Grüneisen
 Co-founder, Naayya
 <a href="https://naayya.com">naayya.com</a>
 
----
-
 Return JSON only: { "subject": "...", "body": "..." }
-
-Subject line rules:
-- Short (3-6 words)
-- No gushing ("Love what you're doing!")
-- No clickbait
-- Good: "Quick note", "Hi from a fellow studio owner", "Saw your studio"
-- Bad: "Amazing opportunity!", "Fellow studio owner here (and big fan!)"
-
+Subject: 3-6 words, hint at value or spark curiosity
 Body: Plain text, use \\n for line breaks`;
 
     // Check OpenRouter API key

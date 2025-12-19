@@ -86,18 +86,18 @@ export async function validateSocialUrl(
     }
 
     if (platform === 'facebook') {
-      if (response.status === 404) {
-        return { valid: false, error: 'page not found' };
-      }
+      // Facebook returns 400 for all programmatic requests, so we can't rely on status codes
+      // Instead, check the page title: valid pages have "Page Name | ..." while invalid pages just show "Facebook"
       const text = await response.text();
-      if (
-        text.includes("This content isn't available") ||
-        text.includes('Page Not Found') ||
-        text.includes("Sorry, this content isn't available")
-      ) {
+      const titleMatch = text.match(/<title>([^<]*)<\/title>/);
+      const title = titleMatch?.[1] || '';
+
+      // If title is just "Facebook" or empty, the page doesn't exist
+      // Valid pages have titles like "Pure Yoga | Bryan OH" or "Business Name - Facebook"
+      if (title === 'Facebook' || title === '' || title === 'Log in to Facebook') {
         return { valid: false, error: 'page not found' };
       }
-      return { valid: response.ok };
+      return { valid: true };
     }
 
     return { valid: response.ok };

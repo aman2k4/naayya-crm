@@ -5,7 +5,6 @@ import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BulkEnrichmentResult } from '@/types/crm';
 import { BUSINESS_TYPE_KEYWORDS } from '@/lib/crm/enrichmentTaxonomy';
 import {
   normalizeForComparison,
@@ -29,8 +28,6 @@ const singleRequestSchema = z.object({
 const bulkRequestSchema = z.object({
   leadIds: z.array(z.string().uuid('Invalid lead ID')).min(1).max(10),
   leadId: z.undefined(),
-  autoApply: z.boolean().default(false), // Default to preview mode
-  previewMode: z.boolean().default(true), // Returns both provider results for review
   searchFields: searchFieldsSchema, // Which fields to use for search (shared across all leads)
 });
 
@@ -78,6 +75,38 @@ interface LeadRecord {
 }
 
 type SearchFieldType = 'studio_name' | 'person_name' | 'email' | 'location' | 'current_platform' | 'additional_info';
+
+function buildEnrichmentPrompt(searchIdentifiers: string[]): string {
+  return `Search the web for business information about this fitness/wellness studio or person:
+
+${searchIdentifiers.join('\n')}
+
+Find and return ONLY information you can verify from the web. Return a JSON object with these fields (only include fields you find with confidence):
+
+{
+  "email": "IMPORTANT: business contact email. Search the website contact page, footer, about page, Google Maps, Facebook, Yelp. Look for mailto: links or info@/hello@/contact@ patterns",
+  "first_name": "owner/contact person first name",
+  "last_name": "owner/contact person last name",
+  "phone_number": "business phone number in E.164 format (e.g., +14155552671) if possible",
+  "website": "official website URL (prefer https://, no tracking query params)",
+  "current_platform": "MUST be a single word (no spaces). Known platforms: MindBody, Eversports, Momence, Setmore, Arketa, iSport, Momoyoga, Reservio, Bsport, Glofox, TeamUp, Acuity, MarianaTek, Fittogram, WellnessLiving. NEVER use a different name unless absolutely certain it's not in this list.",
+  "classes_per_week_estimate": "INTEGER only. Estimate group classes per week from the public schedule. If uncertain, OMIT.",
+  "instructors_count_estimate": "INTEGER only. Estimate instructors/teachers/coaches count from team page and/or schedule. If uncertain, OMIT.",
+  "city": "city name",
+  "state": "state/province/region (use 2-letter abbreviation for US if known)",
+  "country_code": "ISO 3166-1 alpha-2 code (e.g., US, DE, GB)",
+  "instagram": "Instagram profile URL",
+  "facebook": "Facebook page URL",
+  "business_type": "MUST be exactly ONE of: ${BUSINESS_TYPE_KEYWORDS.map((k) => `"${k}"`).join(', ')}",
+  "description": "brief description of the business"
+}
+
+IMPORTANT:
+- EMAIL IS TOP PRIORITY: You MUST actively search for an email address. Check: 1) Website contact/about pages 2) Website footer 3) Google Maps listing 4) Facebook/Instagram bios 5) Yelp/business directories 6) Domain-based guesses like info@domain.com if commonly used
+- Only include fields you actually find evidence for
+- Return ONLY the JSON object, no other text
+- If you cannot find reliable information, return an empty object {}`;
+}
 
 function safeExtractJsonObject(text: string): Record<string, unknown> | null {
   const trimmed = text.trim();
@@ -212,192 +241,6 @@ async function callPerplexity(prompt: string): Promise<{ text: string; citations
   return { text, citations };
 }
 
-async function enrichSingleLead(
-  supabase: SupabaseClient,
-  leadId: string,
-  autoApply: boolean = false,
-  searchFields?: SearchFieldType[]
-): Promise<{
-  leadId: string;
-  success: boolean;
-  found: Record<string, string>;
-  newFields: Record<string, string>;
-  conflicts: Array<{ field: string; current: string; found: string }>;
-  sources: string[];
-  rawResponse: string;
-  updatedLead?: LeadRecord;
-  fieldsUpdated?: string[];
-  error?: string;
-}> {
-  // Fetch lead data
-  const { data: lead, error: leadError } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('id', leadId)
-    .single();
-
-  if (leadError || !lead) {
-    return {
-      leadId,
-      success: false,
-      found: {},
-      newFields: {},
-      conflicts: [],
-      sources: [],
-      rawResponse: '',
-      error: leadError?.message || 'Lead not found',
-    };
-  }
-
-  const typedLead = lead as LeadRecord;
-
-  // Build search context based on selected fields (or use defaults for bulk mode)
-  const emailDomain = typedLead.email?.split('@')[1];
-  const personName = [typedLead.first_name, typedLead.last_name].filter(Boolean).join(' ');
-  const locationHints = [typedLead.city, typedLead.state, typedLead.country_code].filter(Boolean).join(', ');
-
-  // Determine which fields to use
-  const fieldsToUse = searchFields || ['studio_name', 'person_name', 'email', 'location'] as SearchFieldType[];
-
-  // Build search identifiers based on selected fields
-  const searchIdentifiers: string[] = [];
-  if (fieldsToUse.includes('studio_name') && typedLead.studio_name?.trim()) {
-    searchIdentifiers.push(`Business Name: ${typedLead.studio_name}`);
-  }
-  if (fieldsToUse.includes('person_name') && personName) {
-    searchIdentifiers.push(`Contact Person: ${personName}`);
-  }
-  if (fieldsToUse.includes('email') && typedLead.email?.trim()) {
-    searchIdentifiers.push(`Email: ${typedLead.email}`);
-    if (emailDomain) searchIdentifiers.push(`Email Domain: ${emailDomain}`);
-  }
-  if (fieldsToUse.includes('location') && locationHints) {
-    searchIdentifiers.push(`Location: ${locationHints}`);
-  }
-  if (fieldsToUse.includes('current_platform') && typedLead.current_platform?.trim()) {
-    searchIdentifiers.push(`Studio using ${typedLead.current_platform} platform`);
-  }
-  if (fieldsToUse.includes('additional_info') && typedLead.additional_info?.trim()) {
-    searchIdentifiers.push(`Additional context about this business: ${typedLead.additional_info}`);
-  }
-
-  // Fallback: if no identifiers, use studio name or return error
-  if (searchIdentifiers.length === 0) {
-    if (typedLead.studio_name?.trim()) {
-      searchIdentifiers.push(`Business Name: ${typedLead.studio_name}`);
-    } else {
-      return {
-        leadId,
-        success: false,
-        found: {},
-        newFields: {},
-        conflicts: [],
-        sources: [],
-        rawResponse: '',
-        error: 'No searchable information available for this lead',
-      };
-    }
-  }
-
-  const prompt = `Search the web for business information about this fitness/wellness studio or person:
-
-${searchIdentifiers.join('\n')}
-
-Find and return ONLY information you can verify from the web. Return a JSON object with these fields (only include fields you find with confidence):
-
-{
-  "email": "IMPORTANT: business contact email. Search the website contact page, footer, about page, Google Maps, Facebook, Yelp. Look for mailto: links or info@/hello@/contact@ patterns",
-  "first_name": "owner/contact person first name",
-  "last_name": "owner/contact person last name",
-  "phone_number": "business phone number in E.164 format (e.g., +14155552671) if possible",
-  "website": "official website URL (prefer https://, no tracking query params)",
-  "current_platform": "MUST be a single word (no spaces). Known platforms: MindBody, Eversports, Momence, Setmore, Arketa, iSport, Momoyoga, Reservio, Bsport, Glofox, TeamUp, Acuity, MarianaTek, Fittogram, WellnessLiving. NEVER use a different name unless absolutely certain it's not in this list.",
-  "classes_per_week_estimate": "INTEGER only. Estimate group classes per week from the public schedule. If uncertain, OMIT.",
-  "instructors_count_estimate": "INTEGER only. Estimate instructors/teachers/coaches count from team page and/or schedule. If uncertain, OMIT.",
-  "city": "city name",
-  "state": "state/province/region (use 2-letter abbreviation for US if known)",
-  "country_code": "ISO 3166-1 alpha-2 code (e.g., US, DE, GB)",
-  "instagram": "Instagram profile URL",
-  "facebook": "Facebook page URL",
-  "business_type": "MUST be exactly ONE of: ${BUSINESS_TYPE_KEYWORDS.map((k) => `"${k}"`).join(', ')}",
-  "description": "brief description of the business"
-}
-
-IMPORTANT:
-- EMAIL IS TOP PRIORITY: You MUST actively search for an email address. Check: 1) Website contact/about pages 2) Website footer 3) Google Maps listing 4) Facebook/Instagram bios 5) Yelp/business directories 6) Domain-based guesses like info@domain.com if commonly used
-- Only include fields you actually find evidence for
-- Return ONLY the JSON object, no other text
-- If you cannot find reliable information, return an empty object {}`;
-
-  // Call Gemini with grounded search
-  const { text, sources } = await generateText({
-    model: google('gemini-2.5-flash'),
-    tools: {
-      google_search: google.tools.googleSearch({}),
-    },
-    prompt,
-  });
-
-  // Parse the response
-  let foundData: Record<string, string> = {};
-  const parsed = safeExtractJsonObject(text);
-  if (parsed) {
-    foundData = mapAndFilterFoundData(parsed);
-  } else if (text.trim()) {
-    console.error('Failed to parse Gemini response. Raw text:', text);
-  }
-
-  const { newFields, conflicts } = computeNewFieldsAndConflicts(typedLead, foundData);
-
-  // Extract source URLs
-  const sourceUrls = sources?.map(s => {
-    if ('url' in s && typeof s.url === 'string') {
-      return s.url;
-    }
-    return null;
-  }).filter((url): url is string => url !== null) || [];
-
-  // Auto-apply if requested (for bulk mode)
-  let updatedLead: LeadRecord | undefined;
-  let fieldsUpdated: string[] | undefined;
-
-  if (autoApply && (Object.keys(newFields).length > 0 || conflicts.length > 0)) {
-    const updateData: Record<string, string> = { ...newFields };
-    // Also apply conflicts (overwrite existing values)
-    for (const conflict of conflicts) {
-      updateData[conflict.field] = conflict.found;
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      const { data: updated, error: updateError } = await supabase
-        .from('leads')
-        .update(updateData)
-        .eq('id', leadId)
-        .select('*')
-        .single();
-
-      if (updateError) {
-        console.error('Failed to auto-apply enrichment:', updateError);
-      } else {
-        updatedLead = updated as LeadRecord;
-        fieldsUpdated = Object.keys(updateData);
-      }
-    }
-  }
-
-  return {
-    leadId,
-    success: true,
-    found: foundData,
-    newFields,
-    conflicts,
-    sources: sourceUrls,
-    rawResponse: text,
-    updatedLead,
-    fieldsUpdated,
-  };
-}
-
 interface ProviderResult {
   provider: 'gemini' | 'perplexity';
   found: Record<string, string>;
@@ -502,35 +345,7 @@ async function enrichSingleLeadWithProviders(
   console.log(`🔎 [Enrich] Search identifiers:`, searchIdentifiers);
   console.log(`🚀 [Enrich] Starting parallel requests to Gemini and Perplexity...`);
 
-  const prompt = `Search the web for business information about this fitness/wellness studio or person:
-
-${searchIdentifiers.join('\n')}
-
-Find and return ONLY information you can verify from the web. Return a JSON object with these fields (only include fields you find with confidence):
-
-{
-  "email": "IMPORTANT: business contact email. Search the website contact page, footer, about page, Google Maps, Facebook, Yelp. Look for mailto: links or info@/hello@/contact@ patterns",
-  "first_name": "owner/contact person first name",
-  "last_name": "owner/contact person last name",
-  "phone_number": "business phone number in E.164 format (e.g., +14155552671) if possible",
-  "website": "official website URL (prefer https://, no tracking query params)",
-  "current_platform": "MUST be a single word (no spaces). Known platforms: MindBody, Eversports, Momence, Setmore, Arketa, iSport, Momoyoga, Reservio, Bsport, Glofox, TeamUp, Acuity, MarianaTek, Fittogram, WellnessLiving. NEVER use a different name unless absolutely certain it's not in this list.",
-  "classes_per_week_estimate": "INTEGER only. Estimate group classes per week from the public schedule. If uncertain, OMIT.",
-  "instructors_count_estimate": "INTEGER only. Estimate instructors/teachers/coaches count from team page and/or schedule. If uncertain, OMIT.",
-  "city": "city name",
-  "state": "state/province/region (use 2-letter abbreviation for US if known)",
-  "country_code": "ISO 3166-1 alpha-2 code (e.g., US, DE, GB)",
-  "instagram": "Instagram profile URL",
-  "facebook": "Facebook page URL",
-  "business_type": "MUST be exactly ONE of: ${BUSINESS_TYPE_KEYWORDS.map((k) => `"${k}"`).join(', ')}",
-  "description": "brief description of the business"
-}
-
-IMPORTANT:
-- EMAIL IS TOP PRIORITY: You MUST actively search for an email address. Check: 1) Website contact/about pages 2) Website footer 3) Google Maps listing 4) Facebook/Instagram bios 5) Yelp/business directories 6) Domain-based guesses like info@domain.com if commonly used
-- Only include fields you actually find evidence for
-- Return ONLY the JSON object, no other text
-- If you cannot find reliable information, return an empty object {}`;
+  const prompt = buildEnrichmentPrompt(searchIdentifiers);
 
   const geminiPromise = (async () => {
     console.log(`🤖 [Enrich/Gemini] Starting Gemini search...`);
@@ -756,79 +571,45 @@ export async function POST(request: NextRequest) {
 
     // Handle bulk enrichment
     if ('leadIds' in data && data.leadIds) {
-      const { leadIds, autoApply = false, previewMode = true } = data;
+      const { leadIds } = data;
 
-      // Preview mode: return both provider results for user review (no auto-apply)
-      if (previewMode) {
-        // Fetch leads first so we can include them in the response
-        const { data: leads, error: leadsError } = await supabase
-          .from('leads_with_email_count')
-          .select('*')
-          .in('id', leadIds);
+      // Fetch leads first so we can include them in the response
+      const { data: leads, error: leadsError } = await supabase
+        .from('leads_with_email_count')
+        .select('*')
+        .in('id', leadIds);
 
-        if (leadsError) {
-          return NextResponse.json({
-            error: 'Failed to fetch leads',
-            details: leadsError.message
-          }, { status: 500 });
-        }
-
-        const leadsMap = new Map(leads?.map(l => [l.id, l]) || []);
-
-        // Process all leads in parallel with both providers, passing searchFields
-        const results = await Promise.all(
-          leadIds.map(leadId => enrichSingleLeadWithProviders(supabase, leadId, data.searchFields))
-        );
-
-        const items = results.map(r => ({
-          leadId: r.leadId,
-          lead: leadsMap.get(r.leadId),
-          success: r.success,
-          providers: r.providers,
-          error: r.error,
-        }));
-
-        const successCount = items.filter(r => r.success).length;
-
+      if (leadsError) {
         return NextResponse.json({
-          success: true,
-          bulk: true,
-          previewMode: true,
-          items,
-          summary: {
-            total: leadIds.length,
-            successful: successCount,
-            failed: leadIds.length - successCount,
-          }
-        });
+          error: 'Failed to fetch leads',
+          details: leadsError.message
+        }, { status: 500 });
       }
 
-      // Legacy auto-apply mode
+      const leadsMap = new Map(leads?.map(l => [l.id, l]) || []);
+
+      // Process all leads in parallel with both providers
       const results = await Promise.all(
-        leadIds.map(leadId => enrichSingleLead(supabase, leadId, autoApply))
+        leadIds.map(leadId => enrichSingleLeadWithProviders(supabase, leadId, data.searchFields))
       );
 
-      // Transform to BulkEnrichmentResult format
-      const bulkResults: BulkEnrichmentResult[] = results.map(r => ({
+      const items = results.map(r => ({
         leadId: r.leadId,
+        lead: leadsMap.get(r.leadId),
         success: r.success,
-        updatedLead: r.updatedLead as BulkEnrichmentResult['updatedLead'],
-        fieldsUpdated: r.fieldsUpdated,
+        providers: r.providers,
         error: r.error,
       }));
 
-      const successCount = bulkResults.filter(r => r.success).length;
-      const updatedCount = bulkResults.filter(r => r.fieldsUpdated && r.fieldsUpdated.length > 0).length;
+      const successCount = items.filter(r => r.success).length;
 
       return NextResponse.json({
         success: true,
         bulk: true,
-        previewMode: false,
-        results: bulkResults,
+        items,
         summary: {
           total: leadIds.length,
           successful: successCount,
-          updated: updatedCount,
           failed: leadIds.length - successCount,
         }
       });

@@ -1,4 +1,4 @@
-export const COUNTRY_DATA: Record<string, { name: string; flag: string }> = {
+const COUNTRY_DATA: Record<string, { name: string; flag: string }> = {
   US: { name: "United States", flag: "\u{1F1FA}\u{1F1F8}" },
   CA: { name: "Canada", flag: "\u{1F1E8}\u{1F1E6}" },
   DE: { name: "Germany", flag: "\u{1F1E9}\u{1F1EA}" },

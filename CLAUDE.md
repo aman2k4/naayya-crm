@@ -22,6 +22,7 @@ This is an interanl tool for Naayya. It is used to manage the CRM, look for new 
 - Avoid massive JSX blocks and compose smaller components
 - Colocate code that changes together
 - Avoid `useEffect` unless absolutely needed
+- Always prefer shadcn/ui components over custom components when available
 
 ## Tailwind
 - Mostly use built-in values, occasionally allow dynamic values, rarely globals

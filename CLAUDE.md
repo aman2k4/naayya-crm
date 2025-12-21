@@ -7,6 +7,8 @@ This is an interanl tool for Naayya. It is used to manage the CRM, look for new 
 
 ## Backend database schema
 - For the complete database schema, read the file `/Users/amanagarwal/Documents/personal/tools/yambooking/supabase/schema.sql`. It is for READ ONLY PURPOSES.
+- NEVER use MCP Supabase tools to apply migrations or modify the database schema. Only use them for reading data and debugging.
+- If migrations are needed, create SQL files in the `migrations/` folder for manual review and application.
 
 ## TypeScript
 - Only create an abstraction if it's actually needed
